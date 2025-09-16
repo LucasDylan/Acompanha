@@ -1,3 +1,7 @@
-# projeto_apollo
-
-Projeto pessoal em desenvolvimento, Social Meeting e um app para ajudar pessoas solteiras a socializar, nunca ficar sozinho para um encontro, poder ir a filmes, festas e casamentos de amigos e familiares sempre aconpanhado. Funcionalidades principais ainda em implementacao.
+🚀 #Projeto_Apollo
+Projeto pessoal em desenvolvimento: Social Meeting é um aplicativo criado para ajudar pessoas solteiras a se conectarem e socializarem de forma leve e espontânea. A proposta é garantir que ninguém precise ir sozinho a eventos como encontros, festas, casamentos ou até mesmo sessões de cinema — sempre com companhia.
+🔧 Principais funcionalidades ainda em fase de implementação, mas o objetivo é oferecer:
+• 	Conexões baseadas em interesses e disponibilidade
+• 	Sugestões de eventos e atividades sociais
+• 	Sistema de convite para acompanhar amigos e familiares
+• 	Modo “Nunca sozinho”: encontre companhia para qualquer ocasião
