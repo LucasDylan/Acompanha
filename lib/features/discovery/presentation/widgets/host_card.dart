@@ -1,104 +1,153 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/models/host_profile_model.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_shadows.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_network_image.dart';
+import '../../../../core/widgets/category_chip.dart';
+import '../../../../core/widgets/price_tag.dart';
+import '../../../../core/widgets/rating_pill.dart';
 
+/// Large, image-first discovery card (4:5 portrait, à la Hinge / Bumble).
+///
+/// The photo carries the card; name, location, rating and price are overlaid
+/// on a bottom scrim so the layout stays legible over any image. The category
+/// and rating float at the top as frosted chips.
 class HostCard extends StatelessWidget {
   const HostCard({
     super.key,
     required this.host,
     required this.onTap,
+    this.distanceLabel,
   });
 
   final HostProfileModel host;
   final VoidCallback onTap;
 
+  /// Optional "12 km" badge appended to the location (used by search results).
+  final String? distanceLabel;
+
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 36,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: host.avatarUrl != null
-                    ? NetworkImage(host.avatarUrl!)
-                    : null,
-                child: host.avatarUrl == null
-                    ? Icon(Icons.person, size: 36, color: Colors.grey.shade600)
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+    final t = Theme.of(context).textTheme;
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        borderRadius: AppRadius.brXl,
+        boxShadow: AppShadows.md,
+      ),
+      child: ClipRRect(
+        borderRadius: AppRadius.brXl,
+        child: Material(
+          color: AppColors.surface,
+          child: InkWell(
+            onTap: onTap,
+            child: AspectRatio(
+              aspectRatio: 4 / 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Photo.
+                  AppNetworkImage(
+                    url: host.avatarUrl,
+                    seed: host.displayName ?? host.id,
+                    initial: (host.displayName?.isNotEmpty ?? false)
+                        ? host.displayName![0]
+                        : null,
+                  ),
+                  // Legibility scrim.
+                  const DecoratedBox(
+                    decoration: BoxDecoration(gradient: AppColors.photoScrim),
+                  ),
+                  // Top row: category + rating.
+                  Positioned(
+                    top: AppSpacing.x16,
+                    left: AppSpacing.x16,
+                    right: AppSpacing.x16,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          host.displayName ?? 'Host',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        if (host.rating != null) ...[
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.star,
-                            size: 16,
-                            color: Colors.amber.shade700,
+                        if (host.categories.isNotEmpty)
+                          GlassChip(label: host.categories.first)
+                        else
+                          const SizedBox.shrink(),
+                        if (host.rating != null)
+                          RatingPill(
+                            rating: host.rating!,
+                            reviewCount: host.reviewCount,
+                            onPhoto: true,
                           ),
+                      ],
+                    ),
+                  ),
+                  // Bottom content.
+                  Positioned(
+                    left: AppSpacing.x20,
+                    right: AppSpacing.x20,
+                    bottom: AppSpacing.x20,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                host.displayName ?? 'Anfitrião',
+                                style: t.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            if (host.pricePerHour != null)
+                              PriceTag(
+                                amount: host.pricePerHour!,
+                                currency: host.currency,
+                                onPhoto: true,
+                              ),
+                          ],
+                        ),
+                        if (host.location != null || distanceLabel != null) ...[
+                          const SizedBox(height: AppSpacing.x4),
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded,
+                                  size: 14, color: Colors.white70),
+                              const SizedBox(width: AppSpacing.x4),
+                              Flexible(
+                                child: Text(
+                                  [
+                                    if (host.location != null) host.location!,
+                                    if (distanceLabel != null) distanceLabel!,
+                                  ].join('  ·  '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: t.bodyMedium
+                                      ?.copyWith(color: Colors.white70),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        if (host.bio != null) ...[
+                          const SizedBox(height: AppSpacing.x8),
                           Text(
-                            host.rating!.toStringAsFixed(1),
-                            style: Theme.of(context).textTheme.bodySmall,
+                            host.bio!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
                           ),
                         ],
                       ],
                     ),
-                    if (host.bio != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        host.bio!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey.shade700,
-                            ),
-                      ),
-                    ],
-                    if (host.categories.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 4,
-                        children: host.categories
-                            .take(3)
-                            .map((c) => Chip(
-                                  label: Text(
-                                    c,
-                                    style: Theme.of(context).textTheme.labelSmall,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ))
-                            .toList(),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      host.priceLabel,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Icon(Icons.chevron_right),
-            ],
+            ),
           ),
         ),
       ),

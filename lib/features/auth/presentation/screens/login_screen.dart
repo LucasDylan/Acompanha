@@ -1,102 +1,156 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../widgets/login_form.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
+class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context).textTheme;
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 40),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: const Duration(milliseconds: 600),
-                builder: (context, value, child) {
-                  return Opacity(
-                    opacity: value,
-                    child: Transform.translate(
-                      offset: Offset(0, 20 * (1 - value)),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.handshake_outlined,
-                      size: 64,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Social Meeting',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Book time with hosts for coffee, mentorship & more',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
-                    ),
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          // Background accent blobs
+          Positioned(
+            top: -80,
+            right: -60,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.brand.withValues(alpha: 0.25),
+                    Colors.transparent,
                   ],
                 ),
               ),
-              const SizedBox(height: 48),
-              const LoginForm(),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            ),
+          ),
+          Positioned(
+            bottom: 80,
+            left: -80,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.accent.withValues(alpha: 0.12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.x24,
+                vertical: AppSpacing.x32,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SizedBox(height: AppSpacing.x16),
+                  const _BrandMark(),
+                  const SizedBox(height: AppSpacing.x40),
                   Text(
-                    "Don't have an account? ",
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    'Bem-vindo de volta 💪',
+                    style: t.displaySmall?.copyWith(color: AppColors.ink900),
                   ),
-                  TextButton(
-                    onPressed: () => context.push('/register'),
-                    child: const Text('Sign up'),
+                  const SizedBox(height: AppSpacing.x8),
+                  Text(
+                    'Entre para encontrar seu parceiro de treino.',
+                    style: t.bodyLarge?.copyWith(color: AppColors.ink500),
+                  ),
+                  const SizedBox(height: AppSpacing.x32),
+                  const LoginForm(),
+                  const SizedBox(height: AppSpacing.x24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Novo por aqui? ',
+                        style: t.bodyMedium?.copyWith(color: AppColors.ink500),
+                      ),
+                      GestureDetector(
+                        onTap: () => context.push('/register'),
+                        child: Text(
+                          'Criar uma conta',
+                          style: t.labelLarge?.copyWith(color: AppColors.brand400),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
+              ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.04, end: 0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.brLg,
+            gradient: AppColors.brandGradient,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brand.withValues(alpha: 0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
+          child: const Icon(
+            Icons.fitness_center_rounded,
+            color: Colors.white,
+            size: 30,
+          ),
         ),
-      ),
+        const SizedBox(width: AppSpacing.x12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'GymBuddy',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.ink900,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+            ),
+            Text(
+              'Encontre seu parceiro de treino',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.ink500,
+                  ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

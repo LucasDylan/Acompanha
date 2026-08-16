@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 class RegisterForm extends ConsumerStatefulWidget {
@@ -27,6 +30,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
     await ref.read(authStateProvider.notifier).register(
@@ -38,15 +42,17 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
         );
 
     if (!mounted) return;
-
-    final state = ref.read(authStateProvider);
-    state.whenOrNull(
+    ref.read(authStateProvider).whenOrNull(
       data: (user) {
         if (user != null) context.go('/');
       },
       error: (e, _) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
+          ),
         );
       },
     );
@@ -64,59 +70,71 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           TextFormField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
-              labelText: 'Display name',
-              hintText: 'How others see you',
-              prefixIcon: Icon(Icons.person_outline),
+              labelText: 'Nome de exibição',
+              hintText: 'Como as pessoas vão te ver',
+              prefixIcon: Icon(Icons.person_outline_rounded),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.x16),
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
             autocorrect: false,
             decoration: const InputDecoration(
-              labelText: 'Email',
-              hintText: 'you@example.com',
-              prefixIcon: Icon(Icons.email_outlined),
+              labelText: 'E-mail',
+              hintText: 'voce@exemplo.com',
+              prefixIcon: Icon(Icons.mail_outline_rounded),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Enter your email';
-              if (!v.contains('@')) return 'Invalid email';
+              if (v == null || v.trim().isEmpty) return 'Digite seu e-mail';
+              if (!v.contains('@')) return 'Digite um e-mail válido';
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.x16),
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _submit(),
             decoration: InputDecoration(
-              labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outlined),
+              labelText: 'Senha',
+              helperText: 'Mínimo de 6 caracteres',
+              prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                 ),
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Enter a password';
-              if (v.length < 6) return 'At least 6 characters';
+              if (v == null || v.isEmpty) return 'Digite uma senha';
+              if (v.length < 6) return 'Mínimo de 6 caracteres';
               return null;
             },
           ),
-          const SizedBox(height: 32),
-          FilledButton(
-            onPressed: authState.isLoading ? null : _submit,
-            child: authState.isLoading
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Create account'),
+          const SizedBox(height: AppSpacing.x24),
+          AppButton(
+            label: 'Criar conta',
+            glow: true,
+            isLoading: authState.isLoading,
+            onPressed: _submit,
+          ),
+          const SizedBox(height: AppSpacing.x16),
+          Text(
+            'Ao continuar, você concorda com os Termos e a Política de Privacidade.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppColors.ink400),
           ),
         ],
       ),

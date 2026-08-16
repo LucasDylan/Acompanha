@@ -3,12 +3,12 @@ class AppConstants {
   AppConstants._();
 
   static const List<String> meetingCategories = [
-    'Coffee',
+    'Café',
     'Networking',
-    'Mentorship',
-    'Language Practice',
-    'Travel Companionship',
-    'Casual Social',
+    'Mentoria',
+    'Prática de idiomas',
+    'Acompanhamento de viagem',
+    'Social casual',
   ];
 
   static const int maxPhotosPerProfile = 6;

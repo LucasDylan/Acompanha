@@ -93,38 +93,42 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final profile = ref.read(myProfileProvider).valueOrNull;
     final formNotifier = ref.read(profileFormProvider.notifier);
 
-    if (profile == null) {
-      final created = await formNotifier.createHostProfile(
-        displayName: _nameController.text.trim(),
-        bio: _bioController.text.trim().isNotEmpty
-            ? _bioController.text.trim()
-            : null,
-        categories: _selectedCategories.isNotEmpty ? _selectedCategories : null,
-        pricePerHour: double.tryParse(_priceController.text),
-        location: _locationController.text.trim().isNotEmpty
-            ? _locationController.text.trim()
-            : null,
-      );
-      if (created != null) {
-        for (final f in _localPhotos) {
-          await formNotifier.uploadPhoto(created.id, f);
-        }
-        ref.invalidate(myProfileProvider);
-        if (mounted) context.pop();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(ref.read(profileFormProvider).error ?? 'Failed')),
-          );
-        }
+    // The backend /me/ endpoint upserts, so the same call both creates a new
+    // host profile and saves edits to an existing one.
+    final saved = await formNotifier.saveMyProfile(
+      displayName: _nameController.text.trim(),
+      bio: _bioController.text.trim().isNotEmpty
+          ? _bioController.text.trim()
+          : null,
+      categories: _selectedCategories.isNotEmpty ? _selectedCategories : null,
+      pricePerHour: double.tryParse(_priceController.text),
+      location: _locationController.text.trim().isNotEmpty
+          ? _locationController.text.trim()
+          : null,
+    );
+
+    if (saved != null) {
+      for (final f in _localPhotos) {
+        await formNotifier.uploadPhoto(saved.id, f);
       }
-    } else {
-      // Update existing - for MVP we just pop
       ref.invalidate(myProfileProvider);
-      if (mounted) context.pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil salvo')),
+        );
+        context.pop();
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.read(profileFormProvider).error ??
+                'Não foi possível salvar o perfil.',
+          ),
+        ),
+      );
     }
   }
 
@@ -136,7 +140,7 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(profile != null ? 'Edit profile' : 'Create host profile'),
+        title: Text(profile != null ? 'Editar perfil' : 'Criar perfil de anfitrião'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
@@ -150,7 +154,7 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
                     height: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Save'),
+                : const Text('Salvar'),
           ),
         ],
       ),
@@ -172,25 +176,25 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Display name',
+                  labelText: 'Nome de exibição',
                   prefixIcon: Icon(Icons.person),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? 'Required' : null,
+                    v == null || v.isEmpty ? 'Obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _bioController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Short bio',
+                  labelText: 'Bio curta',
                   alignLabelWithHint: true,
                 ),
                 maxLength: AppConstants.maxBioLength,
               ),
               const SizedBox(height: 16),
               Text(
-                'Categories',
+                'Categorias',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 8),
@@ -210,12 +214,12 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
                 controller: _priceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: 'Price per hour (USD)',
+                  labelText: 'Preço por hora (R\$)',
                   prefixIcon: Icon(Icons.attach_money),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return null;
-                  if (double.tryParse(v) == null) return 'Invalid number';
+                  if (double.tryParse(v) == null) return 'Número inválido';
                   return null;
                 },
               ),
@@ -223,7 +227,7 @@ class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
               TextFormField(
                 controller: _locationController,
                 decoration: const InputDecoration(
-                  labelText: 'Location (city)',
+                  labelText: 'Cidade',
                   prefixIcon: Icon(Icons.location_on_outlined),
                 ),
               ),

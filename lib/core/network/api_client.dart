@@ -51,9 +51,21 @@ class AuthInterceptor extends Interceptor {
 
   set token(String? value) => _token = value;
 
+  /// Endpoints that must never receive an Authorization header. Django's JWT
+  /// authentication validates any Bearer token *before* the view's `AllowAny`
+  /// permission, so sending a stale/expired token here returns 401
+  /// ("token inválido") and blocks login/register/refresh entirely.
+  static const _publicAuthPaths = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/token/refresh',
+  ];
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (_token != null && _token!.isNotEmpty) {
+    final isPublicAuth =
+        _publicAuthPaths.any((p) => options.path.contains(p));
+    if (!isPublicAuth && _token != null && _token!.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $_token';
     }
     handler.next(options);

@@ -21,7 +21,13 @@ class ProfileRepository {
     return HostProfileModel.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<HostProfileModel> createHostProfile({
+  /// Creates or updates the logged-in user's host profile.
+  ///
+  /// The backend route is `POST /profiles/me/` (MyHostProfileView), which
+  /// performs an `update_or_create` — so this single call handles both the
+  /// first-time creation and later edits. (Posting to `/profiles/` 404s: that
+  /// path has no view.)
+  Future<HostProfileModel> saveMyProfile({
     required String displayName,
     String? bio,
     List<String>? categories,
@@ -29,31 +35,9 @@ class ProfileRepository {
     String? location,
   }) async {
     final res = await _client.dio.post(
-      ApiConstants.profiles,
+      '${ApiConstants.profiles}me/',
       data: {
         'display_name': displayName,
-        if (bio != null) 'bio': bio,
-        if (categories != null) 'categories': categories,
-        if (pricePerHour != null) 'price_per_hour': pricePerHour,
-        if (location != null) 'location': location,
-        'role': 'host',
-      },
-    );
-    return HostProfileModel.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<HostProfileModel> updateProfile(
-    String id, {
-    String? displayName,
-    String? bio,
-    List<String>? categories,
-    double? pricePerHour,
-    String? location,
-  }) async {
-    final res = await _client.dio.patch(
-      ApiConstants.profile(id),
-      data: {
-        if (displayName != null) 'display_name': displayName,
         if (bio != null) 'bio': bio,
         if (categories != null) 'categories': categories,
         if (pricePerHour != null) 'price_per_hour': pricePerHour,
@@ -65,7 +49,8 @@ class ProfileRepository {
 
   Future<String> uploadPhoto(String profileId, File file) async {
     final formData = FormData.fromMap({
-      'photo': await MultipartFile.fromFile(
+      // Backend (HostPhotoUploadView) expects the field name 'image'.
+      'image': await MultipartFile.fromFile(
         file.path,
         filename: file.path.split('/').last,
       ),
@@ -78,7 +63,10 @@ class ProfileRepository {
       ),
     );
     final data = res.data as Map<String, dynamic>;
-    return data['url'] as String? ?? data['photo_url'] as String? ?? '';
+    return data['image'] as String? ??
+        data['url'] as String? ??
+        data['photo_url'] as String? ??
+        '';
   }
 
   Future<void> deletePhoto(String profileId, String photoUrl) async {

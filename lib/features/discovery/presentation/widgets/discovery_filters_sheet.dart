@@ -98,12 +98,12 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Filters',
+                      'Filtros',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     TextButton(
                       onPressed: _clear,
-                      child: const Text('Clear'),
+                      child: const Text('Limpar'),
                     ),
                   ],
                 ),
@@ -114,7 +114,7 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                   padding: const EdgeInsets.all(16),
                   children: [
                     Text(
-                      'Categories',
+                      'Categorias',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 8),
@@ -130,7 +130,7 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'Price per hour (USD)',
+                      'Preço por hora (R\$)',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 8),
@@ -141,7 +141,7 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                             initialValue: _minPrice?.toString(),
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Min',
+                              labelText: 'Mín',
                               hintText: '0',
                             ),
                             onChanged: (v) =>
@@ -154,7 +154,7 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                             initialValue: _maxPrice?.toString(),
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Max',
+                              labelText: 'Máx',
                               hintText: '100',
                             ),
                             onChanged: (v) =>
@@ -167,14 +167,14 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                     TextFormField(
                       controller: _locationController,
                       decoration: const InputDecoration(
-                        labelText: 'Location',
+                        labelText: 'Cidade',
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                     ),
                     const SizedBox(height: 32),
                     FilledButton(
                       onPressed: _apply,
-                      child: const Text('Apply filters'),
+                      child: const Text('Aplicar filtros'),
                     ),
                   ],
                 ),

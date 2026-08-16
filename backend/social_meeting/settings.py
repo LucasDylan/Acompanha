@@ -1,5 +1,5 @@
 """
-Django settings for Social Meeting API.
+Django settings for GymBuddy API.
 """
 import os
 from pathlib import Path
@@ -23,9 +23,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'accounts',
+    'gyms',
     'profiles',
     'bookings',
-    'payments',
+    'matches',
 ]
 
 MIDDLEWARE = [

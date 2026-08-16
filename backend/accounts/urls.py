@@ -8,4 +8,5 @@ urlpatterns = [
     path('auth/login/', views.LoginView.as_view()),
     path('auth/token/refresh/', TokenRefreshView.as_view()),
     path('auth/me/', views.MeView.as_view()),
+    path('gym-members/', views.GymMembersView.as_view()),
 ]

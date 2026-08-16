@@ -26,9 +26,20 @@ class PhotoPicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Photos',
-          style: Theme.of(context).textTheme.titleSmall,
+        Row(
+          children: [
+            Text(
+              'Fotos',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$totalCount/$maxCount',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: totalCount >= maxCount ? Colors.red : Colors.grey,
+                  ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         SizedBox(

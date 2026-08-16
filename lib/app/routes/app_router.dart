@@ -13,6 +13,7 @@ import '../../features/discovery/presentation/screens/discovery_screen.dart';
 import '../../features/profile/presentation/screens/edit_host_profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/register_screen.dart';
+import '../../features/search/presentation/screens/search_screen.dart';
 import '../../core/models/slot_model.dart';
 import 'shell_scaffold.dart';
 
@@ -21,6 +22,7 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // Individual navigator keys for each shell branch
 final _discoveryNavigatorKey = GlobalKey<NavigatorState>();
+final _searchNavigatorKey = GlobalKey<NavigatorState>();
 final _bookingsNavigatorKey = GlobalKey<NavigatorState>();
 final _messagesNavigatorKey = GlobalKey<NavigatorState>();
 final _profileNavigatorKey = GlobalKey<NavigatorState>();
@@ -73,7 +75,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 1: Bookings
+          // Branch 1: Search
+          StatefulShellBranch(
+            navigatorKey: _searchNavigatorKey,
+            routes: [
+              GoRoute(
+                path: '/search',
+                builder: (context, state) => const SearchScreen(),
+              ),
+            ],
+          ),
+          // Branch 2: Bookings
           StatefulShellBranch(
             navigatorKey: _bookingsNavigatorKey,
             routes: [
@@ -83,7 +95,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 2: Messages
+          // Branch 3: Messages
           StatefulShellBranch(
             navigatorKey: _messagesNavigatorKey,
             routes: [
@@ -93,7 +105,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 3: Profile
+          // Branch 4: Profile
           StatefulShellBranch(
             navigatorKey: _profileNavigatorKey,
             routes: [

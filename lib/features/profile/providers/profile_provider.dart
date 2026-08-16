@@ -43,7 +43,8 @@ class ProfileFormNotifier extends StateNotifier<ProfileFormState> {
 
   final ProfileRepository _repo;
 
-  Future<HostProfileModel?> createHostProfile({
+  /// Creates or updates the user's host profile (backend upserts via /me/).
+  Future<HostProfileModel?> saveMyProfile({
     required String displayName,
     String? bio,
     List<String>? categories,
@@ -52,7 +53,7 @@ class ProfileFormNotifier extends StateNotifier<ProfileFormState> {
   }) async {
     state = const ProfileFormState(isLoading: true);
     try {
-      final profile = await _repo.createHostProfile(
+      final profile = await _repo.saveMyProfile(
         displayName: displayName,
         bio: bio,
         categories: categories,

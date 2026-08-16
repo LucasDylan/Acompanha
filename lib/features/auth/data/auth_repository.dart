@@ -33,6 +33,9 @@ class AuthRepository {
   Future<void> clearTokens() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
+    // Also drop the in-memory token so stale credentials don't leak into
+    // later requests after a failed refresh.
+    _client.setAccessToken(null);
   }
 
   Future<UserModel> login(String email, String password) async {

@@ -3,7 +3,22 @@
     "allow": [
       "Bash(flutter pub *)",
       "Bash(flutter analyze *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(flutter emulators *)",
+      "Bash(ls -la C:/Users/Lucas/projects/meetly_backend/ 2>/dev/null)",
+      "Read(//c/Users/Lucas/projects/meetly_backend/**)",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/api/v1/auth/register/\" -Method POST -ContentType \"application/json\" -Body '{\"email\":\"teste@exemplo.com\",\"password\":\"senha123\",\"display_name\":\"Teste User\",\"role\":\"client\"}' -ErrorAction Stop; $r.Content } catch { $_.Exception.Response.StatusCode; $_.ErrorDetails.Message })",
+      "PowerShell($body = '{\"email\":\"teste@exemplo.com\",\"password\":\"senha123\"}'; $headers = @{\"Content-Type\"=\"application/json\"}; try { $r = Invoke-RestMethod -Uri \"http://localhost:8000/api/v1/auth/login/\" -Method POST -Headers $headers -Body $body; $r | ConvertTo-Json -Depth 5 } catch { $_.Exception.Response.StatusCode.value__; $_.ErrorDetails.Message })",
+      "Bash(flutter devices *)",
+      "Bash(mkdir -p /c/Users/Lucas/AppData/Local/Temp/apollo_screens)",
+      "Bash(adb exec-out *)",
+      "Read(//c/Users/Lucas/AppData/Local/Temp/**)",
+      "Bash(adb shell *)",
+      "Bash(adb devices *)",
+      "Bash(adb reconnect *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Lucas\\AppData\\Local\\Temp\\apollo_screens"
     ]
   }
 }

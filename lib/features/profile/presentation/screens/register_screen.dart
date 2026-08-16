@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../widgets/register_form.dart';
 
 class RegisterScreen extends ConsumerWidget {
@@ -11,35 +14,48 @@ class RegisterScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create account'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x24,
+            vertical: AppSpacing.x8,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              Text('Crie sua\nconta', style: t.displaySmall),
+              const SizedBox(height: AppSpacing.x8),
+              Text(
+                'Faça parte de uma comunidade de conexões reais.',
+                style: t.bodyLarge?.copyWith(color: AppColors.ink500),
+              ),
+              const SizedBox(height: AppSpacing.x32),
               const RegisterForm(),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.x24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Already have an account? ', style: Theme.of(context).textTheme.bodyMedium),
-                  TextButton(
-                    onPressed: () => context.pop(),
-                    child: const Text('Sign in'),
+                  Text('Já tem uma conta? ', style: t.bodyMedium),
+                  GestureDetector(
+                    onTap: () => context.pop(),
+                    child: Text(
+                      'Entrar',
+                      style: t.labelLarge?.copyWith(color: AppColors.brand600),
+                    ),
                   ),
                 ],
               ),
             ],
-          ),
+          ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.04, end: 0),
         ),
       ),
     );

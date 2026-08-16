@@ -67,18 +67,30 @@ class DiscoveryRepository {
     }
   }
 
-  /// Mock data when backend is not available
+  /// Mock data when backend is not available.
+  ///
+  /// Seeded with real portrait imagery (Unsplash) so the image-first UI can be
+  /// demoed convincingly without a populated backend.
   List<HostProfileModel> _mockHosts() {
+    String img(String id) =>
+        'https://images.unsplash.com/photo-$id?auto=format&fit=crop&w=800&q=80';
+
     return [
       HostProfileModel(
         id: 'm1',
         userId: 'u1',
         displayName: 'Alex',
-        bio: 'Coffee & networking enthusiast. Love meeting new people.',
-        avatarUrl: null,
-        photos: [],
-        categories: ['Coffee', 'Networking'],
-        pricePerHour: 25,
+        bio:
+            'Apaixonado por café e networking. Adoro conhecer gente nova e trocar ideias diante de um bom flat white.',
+        avatarUrl: img('1494790108377-be9c29b29330'),
+        photos: [
+          img('1494790108377-be9c29b29330'),
+          img('1517841905240-472988babdf9'),
+          img('1524504388940-b1c1722653e1'),
+        ],
+        categories: ['Café', 'Networking'],
+        pricePerHour: 120,
+        currency: 'BRL',
         rating: 4.8,
         reviewCount: 42,
         location: 'São Paulo',
@@ -87,11 +99,16 @@ class DiscoveryRepository {
         id: 'm2',
         userId: 'u2',
         displayName: 'Jordan',
-        bio: 'Career mentor. 10+ years in tech.',
-        avatarUrl: null,
-        photos: [],
-        categories: ['Mentorship', 'Networking'],
-        pricePerHour: 50,
+        bio:
+            'Mentor de carreira com mais de 10 anos em tech. Ajudo você a se preparar para entrevistas, negociar propostas e ampliar sua rede.',
+        avatarUrl: img('1507003211169-0a1dd7228f2d'),
+        photos: [
+          img('1507003211169-0a1dd7228f2d'),
+          img('1506794778202-cad84cf45f1d'),
+        ],
+        categories: ['Mentoria', 'Networking'],
+        pricePerHour: 240,
+        currency: 'BRL',
         rating: 4.9,
         reviewCount: 18,
         location: 'Rio de Janeiro',
@@ -100,11 +117,16 @@ class DiscoveryRepository {
         id: 'm3',
         userId: 'u3',
         displayName: 'Sam',
-        bio: 'Language practice – English & Spanish.',
-        avatarUrl: null,
-        photos: [],
-        categories: ['Language Practice'],
-        pricePerHour: 20,
+        bio:
+            'Inglês e espanhol em nível nativo. Prática de conversação descontraída sob medida para o seu objetivo — viagem, trabalho ou fluência.',
+        avatarUrl: img('1438761681033-6461ffad8d80'),
+        photos: [
+          img('1438761681033-6461ffad8d80'),
+          img('1534528741775-53994a69daeb'),
+        ],
+        categories: ['Prática de idiomas'],
+        pricePerHour: 95,
+        currency: 'BRL',
         rating: 4.6,
         reviewCount: 31,
         location: 'Belo Horizonte',
@@ -113,14 +135,49 @@ class DiscoveryRepository {
         id: 'm4',
         userId: 'u4',
         displayName: 'Taylor',
-        bio: 'Travel buddy for exploring new cities.',
-        avatarUrl: null,
-        photos: [],
-        categories: ['Travel Companionship'],
-        pricePerHour: 35,
+        bio:
+            'Seu guia local para explorar os cantos escondidos da cidade. Cafés, mirantes e os lugares que os turistas não conhecem.',
+        avatarUrl: img('1539571696357-5a69c17a67c6'),
+        photos: [
+          img('1539571696357-5a69c17a67c6'),
+          img('1500648767791-00dcc994a43e'),
+        ],
+        categories: ['Acompanhamento de viagem'],
+        pricePerHour: 160,
+        currency: 'BRL',
         rating: 4.7,
         reviewCount: 12,
         location: 'Curitiba',
+      ),
+      HostProfileModel(
+        id: 'm5',
+        userId: 'u5',
+        displayName: 'Maya',
+        bio:
+            'Designer e fundadora. Vamos tomar um café e falar sobre produto, portfólio e como entrar no design.',
+        avatarUrl: img('1573496359142-b8d87734a5a2'),
+        photos: [img('1573496359142-b8d87734a5a2')],
+        categories: ['Mentoria', 'Café'],
+        pricePerHour: 180,
+        currency: 'BRL',
+        rating: 5.0,
+        reviewCount: 27,
+        location: 'São Paulo',
+      ),
+      HostProfileModel(
+        id: 'm6',
+        userId: 'u6',
+        displayName: 'Diego',
+        bio:
+            'Companhia tranquila para eventos, jantares e explorar a vida noturna. Boa conversa garantida.',
+        avatarUrl: img('1500648767791-00dcc994a43e'),
+        photos: [img('1500648767791-00dcc994a43e')],
+        categories: ['Social casual', 'Acompanhamento de viagem'],
+        pricePerHour: 140,
+        currency: 'BRL',
+        rating: 4.5,
+        reviewCount: 9,
+        location: 'Florianópolis',
       ),
     ];
   }
