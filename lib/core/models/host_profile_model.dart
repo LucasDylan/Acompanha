@@ -13,6 +13,7 @@ class HostProfileModel {
     this.rating,
     this.reviewCount = 0,
     this.location,
+    this.fitnessLevel,
   });
 
   factory HostProfileModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +35,7 @@ class HostProfileModel {
       rating: (json['rating'] as num?)?.toDouble(),
       reviewCount: json['review_count'] as int? ?? 0,
       location: json['location'] as String?,
+      fitnessLevel: json['fitness_level'] as String?,
     );
   }
 
@@ -49,6 +51,7 @@ class HostProfileModel {
   final double? rating;
   final int reviewCount;
   final String? location;
+  final String? fitnessLevel;
 
   String get priceLabel {
     if (pricePerHour == null) return '';
