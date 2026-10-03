@@ -8,6 +8,15 @@ from django.utils import timezone
 from .models import Slot
 
 SEED_PREFIX = 'seed_host_'
+# Split by gender so the demo photos (demo_photos.py) can match the name.
+FEMALE_NAMES = [
+    'Ana', 'Carla', 'Elisa', 'Gabriela', 'Isabela', 'Karina', 'Mariana',
+    'Olívia', 'Rafaela', 'Tatiana', 'Yasmin',
+]
+MALE_NAMES = [
+    'Bruno', 'Diego', 'Fábio', 'Hugo', 'João', 'Lucas', 'Nathan', 'Pedro',
+    'Samuel', 'Vitor', 'André',
+]
 # Local (Brasília) hours, so a "9h" slot shows as 9h in the app.
 SLOT_HOURS = [9, 10, 11, 14, 15, 16, 17, 18, 19]
 LOCAL_TZ = ZoneInfo('America/Sao_Paulo')

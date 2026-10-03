@@ -1,9 +1,16 @@
+import io
 from datetime import timedelta
+from email.message import Message
+from pathlib import Path
+from unittest import mock
+from urllib.error import URLError
 
+from django.conf import settings
 from django.utils import timezone
 
 from acompanha_testing import ApiTestCase, image_file, make_host, make_slot, make_user
-from profiles.categories import normalize_categories
+from profiles import demo_photos
+from profiles.categories import CATEGORIES, normalize_categories
 from profiles.models import ProfilePhoto, Slot
 
 
@@ -102,3 +109,68 @@ class SlotTests(ApiTestCase):
         other = self.client_for(make_user('x@test.com'))
         self.assertEqual(other.post(self.url, {'start_at': later.isoformat(),
                                                'end_at': (later + timedelta(hours=1)).isoformat()}).status_code, 403)
+
+
+class FakeImageResponse(io.BytesIO):
+    def __init__(self):
+        super().__init__(b'\xff\xd8 not really a jpeg')
+        self.headers = Message()
+        self.headers['Content-Type'] = 'image/jpeg'
+
+
+class DemoPhotoTests(ApiTestCase):
+    photos = demo_photos.DemoPhotos(
+        female=['demo/portraits/f1.jpg', 'demo/portraits/f2.jpg'],
+        male=['demo/portraits/m1.jpg'],
+        scenes={
+            'coffee': ['demo/scenes/coffee/c1.jpg', 'demo/scenes/coffee/c2.jpg'],
+            'travel': ['demo/scenes/travel/t1.jpg'],
+        },
+    )
+
+    def test_faces_match_the_name_and_galleries_the_categories(self):
+        ana = make_user('seed_host_0', display_name='Ana Silva')
+        bruno = make_user('seed_host_1', display_name='Bruno Costa', avatar_url='https://images.unsplash.com/x')
+        host = make_host(bruno, categories=['travel', 'coffee'])
+        real = make_user('real@test.com', display_name='Ana Real', avatar_url='https://example.com/me.jpg')
+
+        for _ in range(2):  # re-running must not pile up photos
+            self.assertEqual(demo_photos.assign_photos(self.photos), (2, 1))
+
+        ana.refresh_from_db()
+        bruno.refresh_from_db()
+        real.refresh_from_db()
+        self.assertIn(ana.avatar.name, self.photos.female)
+        self.assertEqual(bruno.avatar.name, 'demo/portraits/m1.jpg')
+        self.assertEqual(bruno.avatar_url, '')
+        self.assertFalse(real.avatar)
+        self.assertEqual(real.avatar_url, 'https://example.com/me.jpg')
+
+        gallery = list(host.photos.values_list('photo', flat=True))
+        self.assertEqual(len(gallery), 2)
+        self.assertEqual(gallery[0], 'demo/scenes/travel/t1.jpg')
+        self.assertIn(gallery[1], self.photos.scenes['coffee'])
+
+        r = self.client_for(real).get(f'/api/v1/profiles/{host.pk}/')
+        self.assertTrue(r.data['avatar_url'].endswith('/media/demo/portraits/m1.jpg'), r.data['avatar_url'])
+        self.assertEqual(len(r.data['photos']), 2)
+
+    def test_download_keeps_what_it_got_when_offline(self):
+        def urlopen(url, timeout):
+            if 'crop=faces' not in url:
+                raise URLError('offline')
+            return FakeImageResponse()
+
+        with mock.patch('profiles.demo_photos.urlopen', urlopen):
+            photos = demo_photos.download_photos()
+
+        self.assertEqual(len(photos.female), len(demo_photos.FEMALE_PORTRAITS))
+        self.assertEqual(len(photos.male), len(demo_photos.MALE_PORTRAITS))
+        self.assertEqual(photos.scenes, {})
+        self.assertEqual(photos.missing, sum(len(ids) for ids in demo_photos.SCENES.values()))
+        self.assertTrue((Path(settings.MEDIA_ROOT) / photos.female[0]).exists())
+
+    def test_photo_lists_have_no_duplicates_and_cover_every_category(self):
+        portraits = demo_photos.FEMALE_PORTRAITS + demo_photos.MALE_PORTRAITS
+        self.assertEqual(len(portraits), len(set(portraits)))
+        self.assertEqual(set(demo_photos.SCENES), set(CATEGORIES))

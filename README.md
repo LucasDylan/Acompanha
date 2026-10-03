@@ -58,12 +58,15 @@ python manage.py runserver 127.0.0.1:8000
 ### Dados de demonstração
 
 ```bash
-python manage.py seed_hosts --count 500                 # anfitriões com horários
+python manage.py seed_hosts --count 500                 # anfitriões com horários e fotos
 python manage.py seed_gym_members --join voce@email.com  # coloca gente (e você) numa academia
+python manage.py seed_demo_photos                       # (re)aplica as fotos nas contas de demo
 python manage.py refresh_demo_slots                     # renova horários vencidos dos anfitriões de demo
 ```
 
 Os horários de demonstração vencem com o tempo; rode `refresh_demo_slots` quando a descoberta ficar sem horários livres.
+
+As fotos de demonstração são fotos reais do [Unsplash](https://unsplash.com/license) (uso livre), escolhidas à mão em `backend/profiles/demo_photos.py`: rostos separados por gênero para combinar com o primeiro nome, e fotos de ambiente por categoria (café, viagem, treino…) para a galeria do anfitrião. Na primeira vez elas são baixadas para `backend/media/demo/` (cerca de 25 MB, fora do git) e compartilhadas entre as contas de demonstração; contas reais não são tocadas. Servem só para desenvolvimento: para prints da loja ou divulgação, use fotos com autorização de imagem.
 
 ### Testes
 

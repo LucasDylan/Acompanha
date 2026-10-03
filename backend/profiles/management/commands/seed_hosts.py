@@ -2,19 +2,16 @@
 import random
 
 from django.contrib.auth.hashers import make_password
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from accounts.models import User
 from profiles.categories import CATEGORIES
-from profiles.demo import SEED_PREFIX, future_slots
+from profiles.demo import FEMALE_NAMES, MALE_NAMES, SEED_PREFIX, future_slots
 from profiles.models import HostProfile, Slot
 
-FIRST_NAMES = [
-    'Ana', 'Bruno', 'Carla', 'Diego', 'Elisa', 'Fábio', 'Gabriela', 'Hugo',
-    'Isabela', 'João', 'Karina', 'Lucas', 'Mariana', 'Nathan', 'Olívia',
-    'Pedro', 'Rafaela', 'Samuel', 'Tatiana', 'Vitor', 'Yasmin', 'André',
-]
+FIRST_NAMES = FEMALE_NAMES + MALE_NAMES
 LAST_NAMES = [
     'Silva', 'Souza', 'Oliveira', 'Santos', 'Pereira', 'Costa', 'Almeida',
     'Ferreira', 'Rodrigues', 'Carvalho', 'Gomes', 'Martins', 'Araújo', 'Lima',
@@ -49,6 +46,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--count', type=int, default=500, help='Number of hosts to create.')
         parser.add_argument('--clear', action='store_true', help='Delete previously seeded hosts first.')
+        parser.add_argument('--no-photos', action='store_true', help='Skip seed_demo_photos (it downloads on first use).')
 
     def handle(self, *args, **options):
         count = options['count']
@@ -103,3 +101,5 @@ class Command(BaseCommand):
             f'Created {len(created_users)} hosts and {len(slots)} slots '
             f'(total seeded hosts: {start_index + count}).'
         ))
+        if not options['no_photos']:
+            call_command('seed_demo_photos', stdout=self.stdout, stderr=self.stderr)
