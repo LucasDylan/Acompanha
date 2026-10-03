@@ -5,6 +5,7 @@ import 'package:projeto_apollo/features/booking/presentation/screens/booking_con
 import 'package:projeto_apollo/features/booking/presentation/screens/host_detail_screen.dart';
 import 'package:projeto_apollo/features/bookings/presentation/screens/bookings_screen.dart';
 import 'package:projeto_apollo/features/chat/presentation/screens/chat_screen.dart';
+import 'package:projeto_apollo/features/discovery/presentation/widgets/host_card.dart';
 
 import '../support/fake_api.dart';
 import '../support/test_app.dart';
@@ -62,6 +63,31 @@ Map<String, dynamic> _booking() => {
 
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
+
+  testWidgets('filtering by a category tags the cards with it', (tester) async {
+    usePhoneScreen(tester);
+    final routes = <String, Handler>{
+      'GET /profiles/hosts/': (_) => jsonResponse({
+            'count': 1,
+            'next': null,
+            'previous': null,
+            'results': [_host()],
+          }),
+    };
+    signedIn(routes);
+    await tester.pumpWidget(testApp(FakeApi(routes)));
+    await settle(tester);
+
+    Finder onCard(String text) =>
+        find.descendant(of: find.byType(HostCard), matching: find.text(text));
+    expect(onCard('Mentoria'), findsOneWidget); // the host's first category
+
+    await tester.tap(find.text('Networking'));
+    await settle(tester);
+    expect(find.text('Trocar ideias e contatos na sua área.'), findsOneWidget);
+    expect(onCard('Networking'), findsOneWidget);
+    expect(onCard('Mentoria'), findsNothing);
+  });
 
   testWidgets('book a slot, then message the host about it', (tester) async {
     usePhoneScreen(tester);
@@ -130,6 +156,10 @@ void main() {
     expect(find.byType(HostDetailScreen), findsOneWidget);
     final page = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(find.text('Mentoria'), 300, scrollable: page);
+    expect(
+      find.text('Conselhos de carreira com quem já passou por isso.'),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(
       find.text('Conversa excelente!'),
       300,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/category_meta.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -105,6 +106,47 @@ class GlassChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A meeting category's icon, name and the line saying what it is (host
+/// profile, help).
+class CategoryInfo extends StatelessWidget {
+  const CategoryInfo({super.key, required this.slug});
+
+  final String slug;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final description = categoryDescription(slug);
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: const BoxDecoration(
+            color: AppColors.brand50,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(categoryIcon(slug), color: AppColors.brand600, size: 20),
+        ),
+        const SizedBox(width: AppSpacing.x12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(categoryLabel(slug), style: t.titleSmall),
+              if (description != null)
+                Text(
+                  description,
+                  style: t.bodySmall?.copyWith(color: AppColors.ink600),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

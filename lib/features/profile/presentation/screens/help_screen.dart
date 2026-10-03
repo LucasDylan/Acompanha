@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/category_meta.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/category_chip.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
@@ -54,6 +56,19 @@ class HelpScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.x20),
         children: [
+          Text('Tipos de encontro', style: t.titleLarge),
+          const SizedBox(height: AppSpacing.x12),
+          AppCard(
+            child: Column(
+              children: [
+                for (final (i, category) in meetingCategories.indexed) ...[
+                  if (i > 0) const SizedBox(height: AppSpacing.x16),
+                  CategoryInfo(slug: category.slug),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.x24),
           Text('Perguntas frequentes', style: t.titleLarge),
           const SizedBox(height: AppSpacing.x12),
           AppCard(

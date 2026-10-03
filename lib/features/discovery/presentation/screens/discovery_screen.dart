@@ -92,6 +92,7 @@ class DiscoveryScreen extends ConsumerWidget {
         ),
       ];
     }
+    final filteredCategories = ref.watch(discoveryFiltersProvider).categories;
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(
@@ -107,6 +108,7 @@ class DiscoveryScreen extends ConsumerWidget {
             final host = feed.items[index];
             final card = HostCard(
               host: host,
+              filteredCategories: filteredCategories,
               onTap: () => context.push('/host/${host.id}', extra: host),
             );
             // Only the first screenful animates in; later pages just appear.
@@ -276,31 +278,55 @@ class _CategoryFilterRow extends ConsumerWidget {
           filters.withCategories(slug == null ? const [] : [slug]);
     }
 
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x20),
-        itemCount: meetingCategories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.x8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _FilterChip(
-              label: 'Todos',
-              selected: filters.categories.isEmpty,
-              onTap: () => select(null),
-            );
-          }
-          final category = meetingCategories[index - 1];
-          return _FilterChip(
-            label: category.label,
-            icon: category.icon,
-            selected: selected == category.slug,
-            onTap: () =>
-                select(selected == category.slug ? null : category.slug),
-          );
-        },
-      ),
+    final description = selected == null ? null : categoryDescription(selected);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x20),
+            itemCount: meetingCategories.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.x8),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _FilterChip(
+                  label: 'Todos',
+                  selected: filters.categories.isEmpty,
+                  onTap: () => select(null),
+                );
+              }
+              final category = meetingCategories[index - 1];
+              return _FilterChip(
+                label: category.label,
+                icon: category.icon,
+                selected: selected == category.slug,
+                onTap: () =>
+                    select(selected == category.slug ? null : category.slug),
+              );
+            },
+          ),
+        ),
+        // Says what the picked kind of meeting is.
+        if (description != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.x20,
+              AppSpacing.x8,
+              AppSpacing.x20,
+              0,
+            ),
+            child: Text(
+              description,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: AppColors.ink600),
+            ),
+          ),
+      ],
     );
   }
 }

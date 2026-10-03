@@ -5,7 +5,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../app/routes/app_router.dart';
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/constants/category_meta.dart';
 import '../../../../core/geo/city_coordinates.dart';
 import '../../../../core/models/host_profile_model.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -16,6 +15,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_network_image.dart';
+import '../../../../core/widgets/category_chip.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/price_tag.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -160,7 +160,7 @@ class _HostDetailViewState extends ConsumerState<_HostDetailView> {
             const SizedBox(height: AppSpacing.x24),
             const _SectionTitle('O que oferece'),
             const SizedBox(height: AppSpacing.x12),
-            _CategoryGrid(categories: host.categories),
+            _CategoryList(categories: host.categories),
           ],
 
           if (host.pricePerHour != null) ...[
@@ -365,63 +365,28 @@ class _RatingRow extends StatelessWidget {
   }
 }
 
-class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({required this.categories});
+class _CategoryList extends StatelessWidget {
+  const _CategoryList({required this.categories});
 
   final List<String> categories;
 
   @override
   Widget build(BuildContext context) {
-    final width =
-        (MediaQuery.of(context).size.width - AppSpacing.x20 * 2 - AppSpacing.x12) /
-            2;
-    return Wrap(
-      spacing: AppSpacing.x12,
-      runSpacing: AppSpacing.x12,
+    return Column(
       children: [
-        for (final slug in categories)
-          SizedBox(width: width, child: _CategoryTile(slug: slug)),
-      ],
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.slug});
-
-  final String slug;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.x16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.brLg,
-        border: Border.all(color: AppColors.ink200),
-      ),
-      child: Row(
-        children: [
+        for (final (i, slug) in categories.indexed) ...[
+          if (i > 0) const SizedBox(height: AppSpacing.x8),
           Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: AppColors.brand50,
-              shape: BoxShape.circle,
+            padding: const EdgeInsets.all(AppSpacing.x16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.brLg,
+              border: Border.all(color: AppColors.ink200),
             ),
-            child: Icon(categoryIcon(slug), color: AppColors.brand600, size: 20),
-          ),
-          const SizedBox(width: AppSpacing.x12),
-          Expanded(
-            child: Text(
-              categoryLabel(slug),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+            child: CategoryInfo(slug: slug),
           ),
         ],
-      ),
+      ],
     );
   }
 }

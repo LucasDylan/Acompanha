@@ -21,6 +21,7 @@ class HostCard extends StatelessWidget {
     required this.host,
     required this.onTap,
     this.distanceLabel,
+    this.filteredCategories = const [],
   });
 
   final HostProfileModel host;
@@ -29,9 +30,21 @@ class HostCard extends StatelessWidget {
   /// Optional "12 km" badge appended to the location (used by search results).
   final String? distanceLabel;
 
+  /// Categories the feed is filtered by. The tag shows one of these when the
+  /// host offers it, so the card says why it's in the results.
+  final List<String> filteredCategories;
+
+  String? get _tag {
+    for (final c in host.categories) {
+      if (filteredCategories.contains(c)) return c;
+    }
+    return host.categories.isEmpty ? null : host.categories.first;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final tag = _tag;
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -74,10 +87,10 @@ class HostCard extends StatelessWidget {
                             label: 'Personal trainer',
                             icon: Icons.verified_rounded,
                           )
-                        else if (host.categories.isNotEmpty)
+                        else if (tag != null)
                           GlassChip(
-                            label: categoryLabel(host.categories.first),
-                            icon: categoryIcon(host.categories.first),
+                            label: categoryLabel(tag),
+                            icon: categoryIcon(tag),
                           )
                         else
                           const SizedBox.shrink(),

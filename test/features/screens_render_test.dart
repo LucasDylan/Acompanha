@@ -75,6 +75,15 @@ void main() {
     await tester.pumpWidget(testApp(FakeApi(r)));
     await settle(tester);
 
+    // Picking a kind of meeting in Descobrir says what it is.
+    expect(find.text('Um papo tomando um café.'), findsNothing);
+    await tester.tap(find.text('Café'));
+    await settle(tester);
+    expect(find.text('Um papo tomando um café.'), findsOneWidget);
+    await tester.tap(find.text('Todos'));
+    await settle(tester);
+    expect(find.text('Um papo tomando um café.'), findsNothing);
+
     await tester.tap(find.text('Parceiros'));
     await settle(tester);
     expect(find.text('Bruno Lima, 29'), findsOneWidget);
@@ -106,6 +115,8 @@ void main() {
     await tester.ensureVisible(find.text('Ajuda'));
     await tester.tap(find.text('Ajuda'));
     await settle(tester);
+    expect(find.text('Tipos de encontro'), findsOneWidget);
+    expect(find.text('Roteiros pela cidade com quem conhece.'), findsOneWidget);
     expect(find.text('Perguntas frequentes'), findsOneWidget);
     await tester.tap(find.byTooltip('Voltar'));
     await settle(tester);
