@@ -1,8 +1,13 @@
 """
-User and auth models for GymBuddy.
+User and auth models for Acompanha.
 """
+import random
+import string
+from datetime import timedelta
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -17,6 +22,7 @@ class User(AbstractUser):
 
     display_name = models.CharField(max_length=255, blank=True)
     avatar_url = models.URLField(blank=True)
+    facebook_id = models.CharField(max_length=64, null=True, blank=True, unique=True)
 
     # Gym membership — nullable until user completes onboarding
     gym = models.ForeignKey(
@@ -42,3 +48,18 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.display_name or self.email
+
+
+class PasswordResetCode(models.Model):
+    """A short-lived numeric code emailed to a user to authorize a password reset."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_codes')
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        return not self.used and timezone.now() - self.created_at < timedelta(minutes=15)
+
+    @staticmethod
+    def generate_code():
+        return ''.join(random.choices(string.digits, k=6))

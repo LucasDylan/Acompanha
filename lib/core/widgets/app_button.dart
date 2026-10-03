@@ -106,21 +106,25 @@ class AppButton extends StatelessWidget {
     final button = AnimatedOpacity(
       duration: const Duration(milliseconds: 150),
       opacity: disabled && !isLoading ? 0.55 : 1,
-      child: Material(
-        color: bg,
-        borderRadius: AppRadius.brMd,
-        child: InkWell(
-          onTap: disabled ? null : onPressed,
+      // RepaintBoundary keeps Impeller from pushing the opacity into the
+      // InkWell's ripple paint, which it can't accept and crashes on iOS.
+      child: RepaintBoundary(
+        child: Material(
+          color: bg,
           borderRadius: AppRadius.brMd,
-          child: Container(
-            height: height,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x20),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.brMd,
-              border: side == BorderSide.none ? null : Border.fromBorderSide(side),
+          child: InkWell(
+            onTap: disabled ? null : onPressed,
+            borderRadius: AppRadius.brMd,
+            child: Container(
+              height: height,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x20),
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.brMd,
+                border: side == BorderSide.none ? null : Border.fromBorderSide(side),
+              ),
+              alignment: Alignment.center,
+              child: child,
             ),
-            alignment: Alignment.center,
-            child: child,
           ),
         ),
       ),

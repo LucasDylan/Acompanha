@@ -1,5 +1,5 @@
 """
-URL configuration for GymBuddy API.
+URL configuration for Acompanha API.
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/v1/', include('profiles.urls')),
     path('api/v1/', include('bookings.urls')),
     path('api/v1/', include('matches.urls')),
+    path('api/v1/', include('payments.urls')),
 ]
 
 if settings.DEBUG:

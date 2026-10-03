@@ -9,7 +9,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../providers/discovery_provider.dart';
-import '../widgets/partner_card.dart';
+import '../widgets/host_card.dart';
 import '../widgets/discovery_filters_sheet.dart';
 
 class DiscoveryScreen extends ConsumerWidget {
@@ -48,10 +48,10 @@ class DiscoveryScreen extends ConsumerWidget {
                   return const SliverFillRemaining(
                     hasScrollBody: false,
                     child: EmptyState(
-                      icon: Icons.fitness_center_rounded,
-                      title: 'Nenhum parceiro por aqui ainda',
+                      icon: Icons.person_search_rounded,
+                      title: 'Nenhum anfitrião por aqui ainda',
                       message:
-                          'Convide seus amigos de academia ou ajuste os filtros.',
+                          'Ajuste os filtros ou explore outra região.',
                     ),
                   );
                 }
@@ -68,20 +68,9 @@ class DiscoveryScreen extends ConsumerWidget {
                         const SizedBox(height: AppSpacing.x16),
                     itemBuilder: (context, index) {
                       final partner = partners[index];
-                      return PartnerCard(
+                      return HostCard(
                         host: partner,
                         onTap: () => context.push('/host/${partner.id}'),
-                        onSendRequest: () {
-                          // TODO: trigger match request via provider
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Pedido enviado para ${partner.displayName}! 🏋️',
-                              ),
-                              backgroundColor: AppColors.brand,
-                            ),
-                          );
-                        },
                       )
                           .animate()
                           .fadeIn(
@@ -147,7 +136,7 @@ class _DiscoveryHeader extends StatelessWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Minha Academia',
+                            'Minha Região',
                             style: t.labelSmall?.copyWith(
                               color: AppColors.brand400,
                             ),
@@ -159,14 +148,57 @@ class _DiscoveryHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.x8),
                 Text(
-                  'Encontre seu\nparceiro de treino',
+                  'Encontre seu\npróximo encontro',
                   style: t.displaySmall?.copyWith(color: AppColors.ink900),
                 ),
               ],
             ),
           ),
+          _CircleIconButton(
+            icon: Icons.search_rounded,
+            tooltip: 'Buscar',
+            onTap: () => context.push('/search'),
+          ),
+          const SizedBox(width: AppSpacing.x8),
           _FilterButton(),
         ],
+      ),
+    );
+  }
+}
+
+/// Shared 48x48 outlined circular action used in the Discover header.
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip ?? '',
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ink300, width: 1),
+            ),
+            child: Icon(icon, color: AppColors.ink700, size: 22),
+          ),
+        ),
       ),
     );
   }

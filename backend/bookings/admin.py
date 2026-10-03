@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import TimeSlot, Booking
+from .models import TrainingSession, Booking
 
-admin.site.register(TimeSlot)
+admin.site.register(TrainingSession)
 admin.site.register(Booking)

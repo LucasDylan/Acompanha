@@ -12,7 +12,9 @@ import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/category_chip.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../matches/providers/matches_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../widgets/gym_picker_sheet.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -90,6 +92,15 @@ class _ProfileBody extends ConsumerWidget {
               icon: Icons.person_outline_rounded,
               label: 'Editar perfil',
               onTap: () => context.push('/edit-profile'),
+            ),
+            _MenuTile(
+              icon: Icons.fitness_center_rounded,
+              label: 'Minha academia',
+              value: user.gymName ?? 'Escolher',
+              onTap: () async {
+                final changed = await showGymPicker(context);
+                if (changed) ref.invalidate(gymMembersProvider);
+              },
             ),
             _MenuTile(
               icon: Icons.credit_card_rounded,
@@ -292,6 +303,31 @@ class _HostSummaryCard extends StatelessWidget {
                   .toList(),
             ),
           ],
+          const SizedBox(height: AppSpacing.x12),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpacing.x4),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: AppRadius.brSm,
+              onTap: () => context.push('/manage-availability'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.x8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_month_outlined,
+                        size: 18, color: AppColors.ink500),
+                    const SizedBox(width: AppSpacing.x8),
+                    Expanded(
+                      child: Text('Gerenciar horários', style: t.bodyMedium),
+                    ),
+                    const Icon(Icons.chevron_right_rounded,
+                        size: 18, color: AppColors.ink400),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -339,12 +375,16 @@ class _MenuTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.destructive = false,
+    this.value,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool destructive;
+
+  /// Optional current setting shown right-aligned before the chevron.
+  final String? value;
 
   @override
   Widget build(BuildContext context) {
@@ -375,6 +415,21 @@ class _MenuTile extends StatelessWidget {
                   ?.copyWith(color: color),
             ),
           ),
+          if (value != null) ...[
+            Flexible(
+              child: Text(
+                value!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: AppColors.ink500),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x4),
+          ],
           if (!destructive)
             const Icon(Icons.chevron_right_rounded, color: AppColors.ink400),
         ],

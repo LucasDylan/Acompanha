@@ -5,7 +5,7 @@ import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
 
-/// Assembles the Material 3 [ThemeData] for GymBuddy — dark-first design.
+/// Assembles the Material 3 [ThemeData] for Acompanha — dark-first design.
 ///
 /// Screens should rarely need explicit styling. Buttons, inputs, cards,
 /// chips, nav — all get their premium dark look from here so the UI stays
@@ -207,6 +207,6 @@ class AppTheme {
     );
   }
 
-  // Keep 'light' as alias to dark for now — GymBuddy is dark-only.
+  // Keep 'light' as alias to dark for now — Acompanha is dark-only.
   static ThemeData get light => dark;
 }

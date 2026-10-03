@@ -28,6 +28,16 @@ class SendMatchRequestView(generics.CreateAPIView):
             reverse.save()
             return Response(MatchRequestSerializer(reverse, context={'request': request}).data,
                             status=status.HTTP_200_OK)
+
+        # Re-sending to the same person must not blow up on the
+        # (sender, receiver) unique constraint — return what already stands.
+        existing = MatchRequest.objects.filter(
+            sender=request.user, receiver_id=receiver_id,
+        ).first()
+        if existing:
+            return Response(MatchRequestSerializer(existing, context={'request': request}).data,
+                            status=status.HTTP_200_OK)
+
         return super().create(request, *args, **kwargs)
 
 

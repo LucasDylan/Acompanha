@@ -15,11 +15,16 @@ class PartnerCard extends StatelessWidget {
     required this.host,
     required this.onTap,
     this.onSendRequest,
+    this.requestSent = false,
   });
 
   final HostProfileModel host;
   final VoidCallback onTap;
   final VoidCallback? onSendRequest;
+
+  /// Whether a request to this person is already on its way. Driven by the
+  /// caller (not local state) so a failed request leaves the button usable.
+  final bool requestSent;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +127,7 @@ class PartnerCard extends StatelessWidget {
                       ),
                       const SizedBox(width: AppSpacing.x12),
                       // Train together CTA.
-                      _TrainButton(onTap: onSendRequest),
+                      _TrainButton(sent: requestSent, onTap: onSendRequest),
                     ],
                   ),
                 ),
@@ -210,26 +215,16 @@ class _WorkoutTypeChip extends StatelessWidget {
   }
 }
 
-class _TrainButton extends StatefulWidget {
-  const _TrainButton({this.onTap});
+class _TrainButton extends StatelessWidget {
+  const _TrainButton({required this.sent, this.onTap});
+
+  final bool sent;
   final VoidCallback? onTap;
-
-  @override
-  State<_TrainButton> createState() => _TrainButtonState();
-}
-
-class _TrainButtonState extends State<_TrainButton> {
-  bool _sent = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _sent
-          ? null
-          : () {
-              setState(() => _sent = true);
-              widget.onTap?.call();
-            },
+      onTap: sent ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         padding: const EdgeInsets.symmetric(
@@ -237,10 +232,10 @@ class _TrainButtonState extends State<_TrainButton> {
           vertical: AppSpacing.x10,
         ),
         decoration: BoxDecoration(
-          gradient: _sent ? null : AppColors.brandGradient,
-          color: _sent ? AppColors.ink200 : null,
+          gradient: sent ? null : AppColors.brandGradient,
+          color: sent ? AppColors.ink200 : null,
           borderRadius: AppRadius.brPill,
-          boxShadow: _sent
+          boxShadow: sent
               ? null
               : [
                   BoxShadow(
@@ -254,15 +249,15 @@ class _TrainButtonState extends State<_TrainButton> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              _sent ? Icons.check_rounded : Icons.fitness_center_rounded,
-              color: _sent ? AppColors.ink500 : Colors.white,
+              sent ? Icons.check_rounded : Icons.fitness_center_rounded,
+              color: sent ? AppColors.ink500 : Colors.white,
               size: 16,
             ),
             const SizedBox(width: 6),
             Text(
-              _sent ? 'Enviado' : 'Treinar',
+              sent ? 'Enviado' : 'Treinar',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: _sent ? AppColors.ink500 : Colors.white,
+                    color: sent ? AppColors.ink500 : Colors.white,
                     fontWeight: FontWeight.w700,
                   ),
             ),

@@ -26,19 +26,19 @@ class ShellScaffold extends StatelessWidget {
           ),
           destinations: const [
             NavigationDestination(
-              icon: Icon(Icons.fitness_center_outlined),
-              selectedIcon: Icon(Icons.fitness_center_rounded),
-              label: 'Parceiros',
+              icon: Icon(Icons.explore_outlined),
+              selectedIcon: Icon(Icons.explore_rounded),
+              label: 'Descobrir',
             ),
             NavigationDestination(
-              icon: Icon(Icons.favorite_outline_rounded),
-              selectedIcon: Icon(Icons.favorite_rounded),
-              label: 'Matches',
+              icon: Icon(Icons.people_outline_rounded),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: 'Parceiros',
             ),
             NavigationDestination(
               icon: Icon(Icons.calendar_today_outlined),
               selectedIcon: Icon(Icons.calendar_today_rounded),
-              label: 'Treinos',
+              label: 'Reservas',
             ),
             NavigationDestination(
               icon: Icon(Icons.chat_bubble_outline_rounded),

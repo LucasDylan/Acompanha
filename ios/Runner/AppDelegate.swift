@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import GoogleMaps
+import FBSDKCoreKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -10,7 +11,19 @@ import GoogleMaps
   ) -> Bool {
     // Google Maps: replace with your Maps SDK for iOS API key.
     GMSServices.provideAPIKey("YOUR_GOOGLE_MAPS_API_KEY")
+    ApplicationDelegate.shared.application(
+      application,
+      didFinishLaunchingWithOptions: launchOptions
+    )
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    ApplicationDelegate.shared.application(app, open: url, options: options)
   }
 }

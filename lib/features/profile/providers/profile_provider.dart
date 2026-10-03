@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/providers.dart';
 import '../../../core/models/host_profile_model.dart';
+import '../../../core/models/slot_model.dart';
 import '../data/profile_repository.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -78,5 +79,36 @@ class ProfileFormNotifier extends StateNotifier<ProfileFormState> {
       state = ProfileFormState(error: e.toString());
       return null;
     }
+  }
+}
+
+/// The authenticated host's own upcoming slots, keyed by their host profile id.
+final mySlotsProvider =
+    AsyncNotifierProvider.family<MySlotsNotifier, List<SlotModel>, String>(
+  MySlotsNotifier.new,
+);
+
+class MySlotsNotifier extends FamilyAsyncNotifier<List<SlotModel>, String> {
+  @override
+  Future<List<SlotModel>> build(String hostId) {
+    return ref.read(profileRepositoryProvider).getMySlots(hostId);
+  }
+
+  Future<void> createSlot({required DateTime startAt, required DateTime endAt}) async {
+    final repo = ref.read(profileRepositoryProvider);
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      await repo.createSlot(hostId: arg, startAt: startAt, endAt: endAt);
+      return repo.getMySlots(arg);
+    });
+  }
+
+  Future<void> deleteSlot(String slotId) async {
+    final repo = ref.read(profileRepositoryProvider);
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      await repo.deleteSlot(hostId: arg, slotId: slotId);
+      return repo.getMySlots(arg);
+    });
   }
 }

@@ -66,12 +66,12 @@ class LoginScreen extends ConsumerWidget {
                   const _BrandMark(),
                   const SizedBox(height: AppSpacing.x40),
                   Text(
-                    'Bem-vindo de volta 💪',
+                    'Bem-vindo de volta 👋',
                     style: t.displaySmall?.copyWith(color: AppColors.ink900),
                   ),
                   const SizedBox(height: AppSpacing.x8),
                   Text(
-                    'Entre para encontrar seu parceiro de treino.',
+                    'Entre para marcar seu próximo encontro.',
                     style: t.bodyLarge?.copyWith(color: AppColors.ink500),
                   ),
                   const SizedBox(height: AppSpacing.x32),
@@ -125,7 +125,7 @@ class _BrandMark extends StatelessWidget {
             ],
           ),
           child: const Icon(
-            Icons.fitness_center_rounded,
+            Icons.groups_rounded,
             color: Colors.white,
             size: 30,
           ),
@@ -135,7 +135,7 @@ class _BrandMark extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'GymBuddy',
+              'Acompanha',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppColors.ink900,
                     fontWeight: FontWeight.w800,
@@ -143,7 +143,7 @@ class _BrandMark extends StatelessWidget {
                   ),
             ),
             Text(
-              'Encontre seu parceiro de treino',
+              'Marque encontros com anfitriões',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.ink500,
                   ),

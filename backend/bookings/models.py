@@ -48,3 +48,46 @@ class TrainingSession(models.Model):
     def __str__(self):
         return f'{self.initiator} + {self.partner} @ {self.scheduled_at:%Y-%m-%d %H:%M}'
 
+
+class Booking(models.Model):
+    """A paid booking of a host's time slot (the marketplace/Discovery flow)."""
+    STATUS_PENDING = 'pending'
+    STATUS_CONFIRMED = 'confirmed'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_DISPUTED = 'disputed'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_CONFIRMED, 'Confirmed'),
+        (STATUS_COMPLETED, 'Completed'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_DISPUTED, 'Disputed'),
+    ]
+
+    client = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='client_bookings',
+    )
+    host = models.ForeignKey(
+        'profiles.HostProfile',
+        on_delete=models.CASCADE,
+        related_name='bookings',
+    )
+    slot = models.OneToOneField(
+        'profiles.Slot',
+        on_delete=models.CASCADE,
+        related_name='booking',
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    amount = models.DecimalField(max_digits=8, decimal_places=2)
+    currency = models.CharField(max_length=8, default='BRL')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Booking {self.pk}: {self.client} -> {self.host}'
+

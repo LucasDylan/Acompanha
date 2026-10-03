@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Color tokens for GymBuddy — dark-first, energetic gym aesthetic.
+/// Color tokens for Acompanha — dark-first, energetic aesthetic.
 ///
 /// Primary: electric orange (#FF5722) — motivation, energy, action.
 /// Accent: lime green (#CCFF00) — results, vitality, progress.

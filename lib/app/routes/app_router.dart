@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/booking/presentation/screens/booking_confirm_screen.dart';
@@ -10,7 +11,9 @@ import '../../features/bookings/presentation/screens/bookings_screen.dart';
 import '../../features/chat/presentation/screens/chat_list_screen.dart';
 import '../../features/chat/presentation/screens/chat_screen.dart';
 import '../../features/discovery/presentation/screens/discovery_screen.dart';
+import '../../features/matches/presentation/screens/matches_screen.dart';
 import '../../features/profile/presentation/screens/edit_host_profile_screen.dart';
+import '../../features/profile/presentation/screens/manage_availability_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/profile/presentation/screens/register_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
@@ -22,7 +25,7 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // Individual navigator keys for each shell branch
 final _discoveryNavigatorKey = GlobalKey<NavigatorState>();
-final _searchNavigatorKey = GlobalKey<NavigatorState>();
+final _matchesNavigatorKey = GlobalKey<NavigatorState>();
 final _bookingsNavigatorKey = GlobalKey<NavigatorState>();
 final _messagesNavigatorKey = GlobalKey<NavigatorState>();
 final _profileNavigatorKey = GlobalKey<NavigatorState>();
@@ -37,7 +40,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isLoggedIn = authState.valueOrNull != null;
       final isLoggingIn = state.uri.toString() == '/login' ||
-          state.uri.toString() == '/register';
+          state.uri.toString() == '/register' ||
+          state.uri.toString() == '/forgot-password';
 
       if (!isLoggedIn && !isLoggingIn) {
         return '/login';
@@ -59,6 +63,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const RegisterScreen(),
       ),
+      GoRoute(
+        path: '/forgot-password',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
       // Shell with bottom navigation
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -75,13 +84,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Branch 1: Search
+          // Branch 1: Matches — the free "train together" flow
           StatefulShellBranch(
-            navigatorKey: _searchNavigatorKey,
+            navigatorKey: _matchesNavigatorKey,
             routes: [
               GoRoute(
-                path: '/search',
-                builder: (context, state) => const SearchScreen(),
+                path: '/matches',
+                builder: (context, state) => const MatchesScreen(),
               ),
             ],
           ),
@@ -118,6 +127,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ],
       ),
       // Routes outside shell - use root navigator
+      // Search — opened from the Discover header (it used to occupy the tab
+      // that now holds Matches).
+      GoRoute(
+        path: '/search',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const SearchScreen(),
+      ),
       // Host detail - receives hostId parameter
       GoRoute(
         path: '/host/:hostId',
@@ -151,6 +167,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/edit-profile',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const EditHostProfileScreen(),
+      ),
+      GoRoute(
+        path: '/manage-availability',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const ManageAvailabilityScreen(),
       ),
     ],
   );
