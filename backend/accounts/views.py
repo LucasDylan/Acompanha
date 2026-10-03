@@ -1,14 +1,29 @@
 import requests
-from rest_framework import generics, status, filters
-from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
+from django.db import transaction
+from rest_framework import filters, generics, serializers, status
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from matches.models import MatchRequest
 
 from .models import PasswordResetCode
-from .serializers import UserSerializer, RegisterSerializer, UpdateProfileSerializer
+from .serializers import (
+    AvatarSerializer,
+    PublicUserSerializer,
+    RegisterSerializer,
+    UpdateProfileSerializer,
+    UserSerializer,
+)
+from .services import delete_account, revoke_all_sessions
 
 User = get_user_model()
 
@@ -21,48 +36,50 @@ def get_tokens_for_user(user):
     }
 
 
+def auth_response(user, request, status_code=status.HTTP_200_OK):
+    tokens = get_tokens_for_user(user)
+    return Response({
+        'user': UserSerializer(user, context={'request': request}).data,
+        'access': tokens['access'],
+        'refresh': tokens['refresh'],
+    }, status=status_code)
+
+
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = []
+    throttle_scope = 'auth'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        tokens = get_tokens_for_user(user)
-        return Response({
-            'user': UserSerializer(user).data,
-            'access': tokens['access'],
-            'refresh': tokens['refresh'],
-        }, status=status.HTTP_201_CREATED)
+        return auth_response(user, request, status.HTTP_201_CREATED)
 
 
 class LoginView(generics.GenericAPIView):
     permission_classes = []
+    throttle_scope = 'auth'
 
     def post(self, request):
-        email = request.data.get('email')
-        password = request.data.get('password')
+        email = (request.data.get('email') or '').strip()
+        password = request.data.get('password') or ''
         # Login é por e-mail, mas USERNAME_FIELD do User continua sendo
         # 'username' (herdado de AbstractUser) e muitas contas seedadas têm
         # username != email — então buscamos por e-mail direto em vez de
         # authenticate(username=email, ...), que comparava com o campo errado.
         user = User.objects.filter(email__iexact=email).first() if email else None
         if user and user.is_active and user.check_password(password):
-            tokens = get_tokens_for_user(user)
-            return Response({
-                'user': UserSerializer(user).data,
-                'access': tokens['access'],
-                'refresh': tokens['refresh'],
-            })
-        return Response({'detail': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            return auth_response(user, request)
+        return Response({'detail': 'E-mail ou senha incorretos.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class FacebookLoginView(generics.GenericAPIView):
     """POST /api/v1/auth/facebook/ — exchange a Facebook access token (obtained
     client-side via the Facebook SDK) for our own JWT pair."""
     permission_classes = []
+    throttle_scope = 'auth'
 
     def post(self, request):
         access_token = request.data.get('access_token')
@@ -73,34 +90,37 @@ class FacebookLoginView(generics.GenericAPIView):
         app_secret = settings.FACEBOOK_APP_SECRET
         if not app_id or not app_secret:
             return Response(
-                {'detail': 'Facebook login is not configured on the server.'},
+                {'detail': 'O login com Facebook ainda não está configurado.'},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
 
-        # Verify the token was actually issued to our app before trusting it.
-        debug = requests.get(
-            'https://graph.facebook.com/debug_token',
-            params={'input_token': access_token, 'access_token': f'{app_id}|{app_secret}'},
-            timeout=10,
-        ).json().get('data', {})
+        try:
+            # Verify the token was actually issued to our app before trusting it.
+            debug = requests.get(
+                'https://graph.facebook.com/debug_token',
+                params={'input_token': access_token, 'access_token': f'{app_id}|{app_secret}'},
+                timeout=10,
+            ).json().get('data', {})
+            if not debug.get('is_valid') or str(debug.get('app_id')) != str(app_id):
+                return Response({'detail': 'Token do Facebook inválido.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if not debug.get('is_valid') or str(debug.get('app_id')) != str(app_id):
-            return Response({'detail': 'Invalid Facebook token'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        profile = requests.get(
-            'https://graph.facebook.com/me',
-            params={'fields': 'id,name,email,picture.type(large)', 'access_token': access_token},
-            timeout=10,
-        ).json()
+            profile = requests.get(
+                'https://graph.facebook.com/me',
+                params={'fields': 'id,name,email,picture.type(large)', 'access_token': access_token},
+                timeout=10,
+            ).json()
+        except requests.RequestException:
+            return Response({'detail': 'Não foi possível falar com o Facebook. Tente novamente.'},
+                            status=status.HTTP_502_BAD_GATEWAY)
 
         facebook_id = profile.get('id')
-        email = profile.get('email')
+        email = (profile.get('email') or '').strip().lower()
         name = profile.get('name', '')
         avatar_url = profile.get('picture', {}).get('data', {}).get('url', '')
 
         user = User.objects.filter(facebook_id=facebook_id).first()
         if not user and email:
-            user = User.objects.filter(email=email).first()
+            user = User.objects.filter(email__iexact=email).first()
             if user:
                 user.facebook_id = facebook_id
                 user.save(update_fields=['facebook_id'])
@@ -121,32 +141,32 @@ class FacebookLoginView(generics.GenericAPIView):
             user.set_unusable_password()
             user.save()
 
-        tokens = get_tokens_for_user(user)
-        return Response({
-            'user': UserSerializer(user).data,
-            'access': tokens['access'],
-            'refresh': tokens['refresh'],
-        })
+        if not user.is_active:
+            return Response({'detail': 'Esta conta foi desativada.'}, status=status.HTTP_403_FORBIDDEN)
+        return auth_response(user, request)
 
 
 class PasswordResetRequestView(generics.GenericAPIView):
     """POST /api/v1/auth/password-reset/ {email} — email a 6-digit reset code."""
     permission_classes = []
+    throttle_scope = 'password_reset'
 
     def post(self, request):
-        email = request.data.get('email')
+        email = (request.data.get('email') or '').strip()
         if not email:
-            return Response({'detail': 'email is required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Informe o e-mail.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        user = User.objects.filter(email=email).first()
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
         if user:
+            # Only the newest code works.
+            user.password_reset_codes.filter(used=False).update(used=True)
             code = PasswordResetCode.generate_code()
             PasswordResetCode.objects.create(user=user, code=code)
             send_mail(
                 subject='Seu código de redefinição de senha — Acompanha',
                 message=f'Seu código é {code}. Ele expira em 15 minutos.',
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
+                recipient_list=[user.email],
                 fail_silently=True,
             )
         # Same response whether or not the email exists, so callers can't use
@@ -157,31 +177,49 @@ class PasswordResetRequestView(generics.GenericAPIView):
 class PasswordResetConfirmView(generics.GenericAPIView):
     """POST /api/v1/auth/password-reset/confirm/ {email, code, new_password}."""
     permission_classes = []
+    throttle_scope = 'password_reset_confirm'
 
     def post(self, request):
-        email = request.data.get('email')
-        code = request.data.get('code')
+        email = (request.data.get('email') or '').strip()
+        code = (request.data.get('code') or '').strip()
         new_password = request.data.get('new_password')
         if not (email and code and new_password):
             return Response(
-                {'detail': 'email, code and new_password are required'},
+                {'detail': 'Informe e-mail, código e a nova senha.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = User.objects.filter(email=email).first()
-        reset_code = None
-        if user:
-            reset_code = user.password_reset_codes.filter(code=code, used=False).order_by('-created_at').first()
+        invalid = Response({'detail': 'Código inválido ou expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            return invalid
 
-        if not user or not reset_code or not reset_code.is_valid():
-            return Response({'detail': 'Código inválido ou expirado'}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            reset_code = (
+                user.password_reset_codes.select_for_update()
+                .filter(used=False).order_by('-created_at').first()
+            )
+            if not reset_code or not reset_code.is_valid():
+                return invalid
+            if reset_code.code != code:
+                reset_code.failed_attempts += 1
+                reset_code.save(update_fields=['failed_attempts'])
+                return invalid
 
-        user.set_password(new_password)
-        user.save(update_fields=['password'])
-        reset_code.used = True
-        reset_code.save(update_fields=['used'])
+            try:
+                validate_password(new_password, user=user)
+            except DjangoValidationError as exc:
+                return Response({'new_password': list(exc.messages), 'detail': ' '.join(exc.messages)},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'detail': 'Senha atualizada'})
+            user.set_password(new_password)
+            user.save(update_fields=['password'])
+            reset_code.used = True
+            reset_code.save(update_fields=['used'])
+            # Whoever had the old password shouldn't keep a session.
+            revoke_all_sessions(user)
+
+        return Response({'detail': 'Senha atualizada.'})
 
 
 class RevokeTokenView(generics.GenericAPIView):
@@ -202,8 +240,9 @@ class RevokeTokenView(generics.GenericAPIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class MeView(generics.RetrieveUpdateAPIView):
-    """GET or PATCH /api/v1/me/ — read or update the current user's profile."""
+class MeView(generics.RetrieveUpdateDestroyAPIView):
+    """GET or PATCH /api/v1/auth/me/ — read or update the current user's profile.
+    DELETE closes the account (required by the App Store for apps with sign-up)."""
 
     def get_serializer_class(self):
         if self.request.method in ('PATCH', 'PUT'):
@@ -213,25 +252,89 @@ class MeView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def destroy(self, request, *args, **kwargs):
+        delete_account(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AvatarView(APIView):
+    """POST (multipart 'image') sets the user's profile photo; DELETE removes it."""
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        serializer = AvatarSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = serializer.validated_data['image']
+        user.save(update_fields=['avatar'])
+        return Response(UserSerializer(user, context={'request': request}).data)
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = None
+        user.avatar_url = ''
+        user.save(update_fields=['avatar', 'avatar_url'])
+        return Response(UserSerializer(user, context={'request': request}).data)
+
+
+class GymMemberSerializer(PublicUserSerializer):
+    """A gym mate, plus where the caller stands with them:
+    none | sent | received | matched."""
+    match_status = serializers.SerializerMethodField()
+
+    class Meta(PublicUserSerializer.Meta):
+        fields = PublicUserSerializer.Meta.fields + ['match_status']
+
+    def get_match_status(self, obj):
+        return self.context.get('match_status', {}).get(obj.pk, 'none')
+
+
+class GymMembersPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 
 class GymMembersView(generics.ListAPIView):
     """GET /api/v1/gym-members/ — discover other members of the authenticated user's gym."""
-    serializer_class = UserSerializer
+    serializer_class = GymMemberSerializer
+    pagination_class = GymMembersPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['display_name', 'fitness_level']
+    search_fields = ['display_name']
 
     def get_queryset(self):
         user = self.request.user
         if not user.gym_id:
             return User.objects.none()
-        qs = User.objects.filter(gym=user.gym).exclude(pk=user.pk)
-        # Optional filter by fitness level
+        qs = (
+            User.objects.filter(gym=user.gym, is_active=True)
+            .exclude(pk=user.pk)
+            .select_related('gym')
+            .order_by('display_name', 'id')
+        )
         level = self.request.query_params.get('fitness_level')
         if level:
             qs = qs.filter(fitness_level=level)
-        # Optional filter by workout type (substring match in JSON array)
         workout = self.request.query_params.get('workout_type')
         if workout:
-            qs = qs.filter(workout_types__contains=workout)
+            qs = qs.filter(workout_types__contains=[workout])
         return qs
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        user = self.request.user
+        statuses = {}
+        for req in MatchRequest.objects.filter(receiver=user).exclude(status=MatchRequest.STATUS_DECLINED):
+            statuses[req.sender_id] = 'matched' if req.status == MatchRequest.STATUS_ACCEPTED else 'received'
+        for req in MatchRequest.objects.filter(sender=user):
+            if req.status == MatchRequest.STATUS_ACCEPTED:
+                statuses[req.receiver_id] = 'matched'
+            else:
+                # A declined request still reads as "sent" to the sender.
+                statuses.setdefault(req.receiver_id, 'sent')
+        context['match_status'] = statuses
+        return context

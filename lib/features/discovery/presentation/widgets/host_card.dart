@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/category_meta.dart';
 import '../../../../core/models/host_profile_model.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_shadows.dart';
@@ -68,8 +69,16 @@ class HostCard extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        if (host.categories.isNotEmpty)
-                          GlassChip(label: host.categories.first)
+                        if (host.isTrainer)
+                          const GlassChip(
+                            label: 'Personal trainer',
+                            icon: Icons.verified_rounded,
+                          )
+                        else if (host.categories.isNotEmpty)
+                          GlassChip(
+                            label: categoryLabel(host.categories.first),
+                            icon: categoryIcon(host.categories.first),
+                          )
                         else
                           const SizedBox.shrink(),
                         if (host.rating != null)
@@ -94,7 +103,7 @@ class HostCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                host.displayName ?? 'Anfitrião',
+                                host.name,
                                 style: t.headlineSmall?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,

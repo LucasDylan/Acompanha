@@ -1,0 +1,22 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 3,
+      "sender": {
+        "id": 506,
+        "display_name": "Bia",
+        "avatar_url": null
+      },
+      "receiver": {
+        "id": 505,
+        "display_name": "Ana",
+        "avatar_url": null
+      },
+      "status": "accepted",
+      "created_at": "2026-10-03T00:05:02.000757Z"
+    }
+  ]
+}

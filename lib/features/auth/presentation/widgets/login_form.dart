@@ -10,6 +10,11 @@ import '../../../../core/widgets/app_network_image.dart';
 import '../../data/saved_account.dart';
 import '../../providers/auth_provider.dart';
 
+/// Facebook login needs the app registered at developers.facebook.com and its
+/// ids in Info.plist / strings.xml; build with
+/// `--dart-define=FACEBOOK_LOGIN=true` once that's done.
+const _facebookEnabled = bool.fromEnvironment('FACEBOOK_LOGIN');
+
 class LoginForm extends ConsumerStatefulWidget {
   const LoginForm({super.key});
 
@@ -22,6 +27,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -30,29 +36,36 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  void _showError(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+  }
+
+  /// Runs a sign-in [action] with the spinner on; errors land in a snackbar.
+  /// Success needs no navigation here — the router reacts to the new session.
+  Future<void> _run(Future<void> Function() action) async {
     FocusScope.of(context).unfocus();
+    setState(() => _submitting = true);
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) _showError(e);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
-    await ref.read(authStateProvider.notifier).login(
-          _emailController.text.trim(),
-          _passwordController.text,
-        );
-
-    if (!mounted) return;
-    ref.read(authStateProvider).whenOrNull(
-      data: (user) {
-        if (user != null) context.go('/');
-      },
-      error: (e, _) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      },
+    await _run(
+      () => ref
+          .read(authStateProvider.notifier)
+          .login(_emailController.text.trim(), _passwordController.text),
     );
   }
 
@@ -77,23 +90,9 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   Future<void> _submitSavedAccount(SavedAccount account) async {
     if (!await _confirmBiometric()) return;
     if (!mounted) return;
-    await ref.read(authStateProvider.notifier).loginWithSavedAccount(account);
-
-    if (!mounted) return;
-    ref.read(authStateProvider).whenOrNull(
-      data: (user) {
-        if (user != null) context.go('/');
-      },
-      error: (e, _) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Sessão expirada. Digite sua senha para ${account.email}.'),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-        _emailController.text = account.email;
-      },
+    _emailController.text = account.email;
+    await _run(
+      () => ref.read(authStateProvider.notifier).loginWithSavedAccount(account),
     );
   }
 
@@ -102,30 +101,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     ref.invalidate(savedAccountsProvider);
   }
 
-  Future<void> _submitFacebook() async {
-    FocusScope.of(context).unfocus();
-    await ref.read(authStateProvider.notifier).loginWithFacebook();
-
-    if (!mounted) return;
-    ref.read(authStateProvider).whenOrNull(
-      data: (user) {
-        if (user != null) context.go('/');
-      },
-      error: (e, _) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      },
-    );
-  }
+  Future<void> _submitFacebook() =>
+      _run(() => ref.read(authStateProvider.notifier).loginWithFacebook());
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
     final savedAccounts = ref.watch(savedAccountsProvider);
 
     return Column(
@@ -136,98 +116,99 @@ class _LoginFormState extends ConsumerState<LoginForm> {
               ? const SizedBox.shrink()
               : _SavedAccountsList(
                   accounts: accounts,
-                  loading: authState.isLoading,
+                  loading: _submitting,
                   onTap: _submitSavedAccount,
                   onRemove: _removeSavedAccount,
                 ),
           orElse: () => const SizedBox.shrink(),
         ),
         Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            autocorrect: false,
-            decoration: const InputDecoration(
-              labelText: 'E-mail',
-              hintText: 'voce@exemplo.com',
-              prefixIcon: Icon(Icons.mail_outline_rounded),
-            ),
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Digite seu e-mail';
-              if (!v.contains('@')) return 'Digite um e-mail válido';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.x16),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _submit(),
-            decoration: InputDecoration(
-              labelText: 'Senha',
-              prefixIcon: const Icon(Icons.lock_outline_rounded),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-            validator: (v) {
-              if (v == null || v.isEmpty) return 'Digite sua senha';
-              if (v.length < 6) return 'Mínimo de 6 caracteres';
-              return null;
-            },
-          ),
-          const SizedBox(height: AppSpacing.x8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => context.push('/forgot-password'),
-              child: const Text('Esqueceu a senha?'),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.x8),
-          AppButton(
-            label: 'Entrar',
-            glow: true,
-            isLoading: authState.isLoading,
-            onPressed: _submit,
-          ),
-          const SizedBox(height: AppSpacing.x16),
-          Row(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: Divider(color: AppColors.ink200)),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.x12,
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                autocorrect: false,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail',
+                  hintText: 'voce@exemplo.com',
+                  prefixIcon: Icon(Icons.mail_outline_rounded),
                 ),
-                child: Text(
-                  'ou',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: AppColors.ink500),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Digite seu e-mail';
+                  if (!v.contains('@')) return 'Digite um e-mail válido';
+                  return null;
+                },
+              ),
+              const SizedBox(height: AppSpacing.x16),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Digite sua senha' : null,
+              ),
+              const SizedBox(height: AppSpacing.x8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => context.push('/forgot-password'),
+                  child: const Text('Esqueceu a senha?'),
                 ),
               ),
-              Expanded(child: Divider(color: AppColors.ink200)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.x16),
-          OutlinedButton.icon(
-            onPressed: authState.isLoading ? null : _submitFacebook,
-            icon: const Icon(Icons.facebook_rounded, color: Color(0xFF1877F2)),
-            label: const Text('Continuar com Facebook'),
-          ),
+              const SizedBox(height: AppSpacing.x8),
+              AppButton(
+                label: 'Entrar',
+                glow: true,
+                isLoading: _submitting,
+                onPressed: _submit,
+              ),
+              if (_facebookEnabled) ...[
+                const SizedBox(height: AppSpacing.x16),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: AppColors.ink200)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x12,
+                      ),
+                      child: Text(
+                        'ou',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.ink500,
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.ink200)),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.x16),
+                OutlinedButton.icon(
+                  onPressed: _submitting ? null : _submitFacebook,
+                  icon: const Icon(
+                    Icons.facebook_rounded,
+                    color: Color(0xFF1877F2),
+                  ),
+                  label: const Text('Continuar com Facebook'),
+                ),
+              ],
             ],
           ),
         ),
@@ -259,7 +240,10 @@ class _SavedAccountsList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Contas recentes', style: t.labelLarge?.copyWith(color: AppColors.ink500)),
+          Text(
+            'Contas recentes',
+            style: t.labelLarge?.copyWith(color: AppColors.ink500),
+          ),
           const SizedBox(height: AppSpacing.x8),
           for (final account in accounts)
             Padding(
@@ -269,50 +253,60 @@ class _SavedAccountsList extends StatelessWidget {
                 // RepaintBoundary keeps Impeller from pushing the opacity into
                 // the InkWell's ripple paint, which it can't accept and crashes on iOS.
                 child: RepaintBoundary(
-                child: Material(
-                  color: AppColors.ink100,
-                  borderRadius: AppRadius.brMd,
-                  child: InkWell(
+                  child: Material(
+                    color: AppColors.ink100,
                     borderRadius: AppRadius.brMd,
-                    onTap: loading ? null : () => onTap(account),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x12,
-                        vertical: AppSpacing.x8,
-                      ),
-                      child: Row(
-                        children: [
-                          AppAvatar(
-                            url: account.avatarUrl,
-                            name: account.displayName ?? account.email,
-                            radius: 18,
-                          ),
-                          const SizedBox(width: AppSpacing.x12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (account.displayName != null &&
-                                    account.displayName!.isNotEmpty)
-                                  Text(account.displayName!, style: t.bodyMedium),
-                                Text(
-                                  account.email,
-                                  style: t.bodySmall?.copyWith(color: AppColors.ink500),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
+                    child: InkWell(
+                      borderRadius: AppRadius.brMd,
+                      onTap: loading ? null : () => onTap(account),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x12,
+                          vertical: AppSpacing.x8,
+                        ),
+                        child: Row(
+                          children: [
+                            AppAvatar(
+                              url: account.avatarUrl,
+                              name: account.displayName ?? account.email,
+                              radius: 18,
                             ),
-                          ),
-                          IconButton(
-                            iconSize: 18,
-                            icon: const Icon(Icons.close_rounded, color: AppColors.ink400),
-                            onPressed: loading ? null : () => onRemove(account),
-                          ),
-                        ],
+                            const SizedBox(width: AppSpacing.x12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (account.displayName != null &&
+                                      account.displayName!.isNotEmpty)
+                                    Text(
+                                      account.displayName!,
+                                      style: t.bodyMedium,
+                                    ),
+                                  Text(
+                                    account.email,
+                                    style: t.bodySmall?.copyWith(
+                                      color: AppColors.ink500,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              iconSize: 18,
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.ink400,
+                              ),
+                              onPressed: loading
+                                  ? null
+                                  : () => onRemove(account),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
                 ),
               ),
             ),

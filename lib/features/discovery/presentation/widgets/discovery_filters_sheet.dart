@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/category_meta.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_button.dart';
 import '../../data/discovery_repository.dart';
 import '../../providers/discovery_provider.dart';
 
@@ -14,66 +16,63 @@ class DiscoveryFiltersSheet extends ConsumerStatefulWidget {
 }
 
 class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
-  List<String> _categories = [];
-  double? _minPrice;
-  double? _maxPrice;
+  late List<String> _categories;
+  late bool _trainersOnly;
+  final _minController = TextEditingController();
+  final _maxController = TextEditingController();
   final _locationController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     final existing = ref.read(discoveryFiltersProvider);
-    if (existing != null) {
-      _categories = List.from(existing.categories ?? []);
-      _minPrice = existing.minPrice;
-      _maxPrice = existing.maxPrice;
-      _locationController.text = existing.location ?? '';
-    }
+    _categories = List.of(existing.categories);
+    _trainersOnly = existing.trainersOnly;
+    _minController.text = _price(existing.minPrice);
+    _maxController.text = _price(existing.maxPrice);
+    _locationController.text = existing.location ?? '';
   }
+
+  String _price(double? v) => v == null ? '' : v.toStringAsFixed(0);
+
+  double? _parse(String v) => double.tryParse(v.replaceAll(',', '.').trim());
 
   @override
   void dispose() {
+    _minController.dispose();
+    _maxController.dispose();
     _locationController.dispose();
     super.dispose();
   }
 
   void _apply() {
+    final location = _locationController.text.trim();
     ref.read(discoveryFiltersProvider.notifier).state = DiscoveryFilters(
-      categories: _categories.isEmpty ? null : _categories,
-      minPrice: _minPrice,
-      maxPrice: _maxPrice,
-      location: _locationController.text.trim().isEmpty
-          ? null
-          : _locationController.text.trim(),
+      categories: _categories,
+      minPrice: _parse(_minController.text),
+      maxPrice: _parse(_maxController.text),
+      location: location.isEmpty ? null : location,
+      trainersOnly: _trainersOnly,
     );
-    ref.invalidate(discoveryHostsProvider);
     Navigator.pop(context);
   }
 
   void _clear() {
     setState(() {
       _categories = [];
-      _minPrice = null;
-      _maxPrice = null;
+      _trainersOnly = false;
+      _minController.clear();
+      _maxController.clear();
       _locationController.clear();
-    });
-  }
-
-  void _toggleCategory(String cat) {
-    setState(() {
-      if (_categories.contains(cat)) {
-        _categories.remove(cat);
-      } else {
-        _categories.add(cat);
-      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return DraggableScrollableSheet(
-      initialChildSize: 0.6,
-      maxChildSize: 0.9,
+      initialChildSize: 0.7,
+      maxChildSize: 0.92,
       expand: false,
       builder: (context, scrollController) {
         return Padding(
@@ -81,7 +80,6 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
             bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 width: 40,
@@ -93,89 +91,91 @@ class _DiscoveryFiltersSheetState extends ConsumerState<DiscoveryFiltersSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Filtros',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    TextButton(
-                      onPressed: _clear,
-                      child: const Text('Limpar'),
-                    ),
+                    Text('Filtros', style: t.titleLarge),
+                    TextButton(onPressed: _clear, child: const Text('Limpar')),
                   ],
                 ),
               ),
               Expanded(
                 child: ListView(
                   controller: scrollController,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.x16),
                   children: [
-                    Text(
-                      'Categorias',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
+                    Text('Tipo de encontro', style: t.titleSmall),
+                    const SizedBox(height: AppSpacing.x8),
                     Wrap(
-                      spacing: 8,
-                      children: AppConstants.meetingCategories.map((cat) {
+                      spacing: AppSpacing.x8,
+                      runSpacing: AppSpacing.x8,
+                      children: meetingCategories.map((c) {
+                        final selected = _categories.contains(c.slug);
                         return FilterChip(
-                          label: Text(cat),
-                          selected: _categories.contains(cat),
-                          onSelected: (_) => _toggleCategory(cat),
+                          avatar: Icon(c.icon, size: 16),
+                          label: Text(c.label),
+                          selected: selected,
+                          onSelected: (_) => setState(() {
+                            selected
+                                ? _categories.remove(c.slug)
+                                : _categories.add(c.slug);
+                          }),
                         );
                       }).toList(),
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Preço por hora (R\$)',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.x24),
+                    Text('Preço por hora (R\$)', style: t.titleSmall),
+                    const SizedBox(height: AppSpacing.x8),
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            initialValue: _minPrice?.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Mín',
-                              hintText: '0',
+                          child: TextField(
+                            controller: _minController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
                             ),
-                            onChanged: (v) =>
-                                _minPrice = double.tryParse(v),
+                            decoration: const InputDecoration(
+                              labelText: 'Mínimo',
+                              prefixText: 'R\$ ',
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: AppSpacing.x16),
                         Expanded(
-                          child: TextFormField(
-                            initialValue: _maxPrice?.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Máx',
-                              hintText: '100',
+                          child: TextField(
+                            controller: _maxController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
                             ),
-                            onChanged: (v) =>
-                                _maxPrice = double.tryParse(v),
+                            decoration: const InputDecoration(
+                              labelText: 'Máximo',
+                              prefixText: 'R\$ ',
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    TextFormField(
+                    const SizedBox(height: AppSpacing.x24),
+                    TextField(
                       controller: _locationController,
+                      textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
                         labelText: 'Cidade',
+                        hintText: 'Ex.: São Paulo',
                         prefixIcon: Icon(Icons.location_on_outlined),
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    FilledButton(
-                      onPressed: _apply,
-                      child: const Text('Aplicar filtros'),
+                    const SizedBox(height: AppSpacing.x12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Só personal trainers'),
+                      subtitle: const Text('Profissionais com plano Pro'),
+                      value: _trainersOnly,
+                      onChanged: (v) => setState(() => _trainersOnly = v),
                     ),
+                    const SizedBox(height: AppSpacing.x24),
+                    AppButton(label: 'Aplicar filtros', onPressed: _apply),
                   ],
                 ),
               ),

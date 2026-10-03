@@ -1,74 +1,138 @@
-
 import '../../../core/constants/api_constants.dart';
 import '../../../core/models/booking_model.dart';
 import '../../../core/models/slot_model.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
+
+/// What the server says about taking payments right now.
+class PaymentConfig {
+  const PaymentConfig({
+    required this.enabled,
+    this.publishableKey,
+    this.unpaidBookingsAllowed = false,
+  });
+
+  factory PaymentConfig.fromJson(Map<String, dynamic> json) => PaymentConfig(
+        enabled: json['enabled'] as bool? ?? false,
+        publishableKey: json['publishable_key'] as String?,
+        unpaidBookingsAllowed: json['unpaid_bookings_allowed'] as bool? ?? false,
+      );
+
+  final bool enabled;
+  final String? publishableKey;
+
+  /// Development mode: bookings are confirmed without charging.
+  final bool unpaidBookingsAllowed;
+}
+
+class HostReview {
+  const HostReview({
+    required this.rating,
+    required this.author,
+    required this.createdAt,
+    this.comment,
+  });
+
+  factory HostReview.fromJson(Map<String, dynamic> json) => HostReview(
+        rating: json['rating'] as int,
+        author: json['author'] as String? ?? 'Cliente',
+        comment: (json['comment'] as String?)?.trim().isEmpty ?? true
+            ? null
+            : json['comment'] as String,
+        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      );
+
+  final int rating;
+  final String author;
+  final String? comment;
+  final DateTime createdAt;
+}
 
 class BookingRepository {
   BookingRepository({required ApiClient apiClient}) : _client = apiClient;
 
   final ApiClient _client;
 
-  Future<List<SlotModel>> getHostSlots(String hostId, {DateTime? from}) async {
-    try {
-      final res = await _client.dio.get(
-        ApiConstants.hostSlots(hostId),
-        queryParameters: from != null ? {'from': from.toIso8601String()} : null,
-      );
-      final data = res.data;
-      List<dynamic> list = data is List ? data : (data['results'] ?? data['slots'] ?? []);
-      return list.map((e) => SlotModel.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      return _mockSlots(hostId);
-    }
-  }
+  List<dynamic> _results(dynamic data) =>
+      data is List ? data : (data['results'] as List? ?? const []);
+
+  /// The host's open, upcoming slots.
+  Future<List<SlotModel>> getHostSlots(String hostId) => guardApi(() async {
+        final res = await _client.dio.get(ApiConstants.hostSlots(hostId));
+        return _results(res.data)
+            .map((e) => SlotModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      });
 
   Future<BookingModel> createBooking({
     required String slotId,
     required String hostId,
-  }) async {
-    final res = await _client.dio.post(
-      ApiConstants.bookings,
-      data: {'slot_id': slotId, 'host_id': hostId},
-    );
-    return BookingModel.fromJson(res.data as Map<String, dynamic>);
-  }
+  }) =>
+      guardApi(() async {
+        final res = await _client.dio.post(
+          ApiConstants.bookings,
+          data: {
+            'slot_id': int.tryParse(slotId) ?? slotId,
+            'host_id': int.tryParse(hostId) ?? hostId,
+          },
+        );
+        return BookingModel.fromJson(res.data as Map<String, dynamic>);
+      });
 
-  Future<String> createPaymentIntent(String bookingId) async {
-    final res = await _client.dio.post(
-      ApiConstants.createPaymentIntent,
-      data: {'booking_id': bookingId},
-    );
-    return (res.data as Map)['client_secret'] as String? ?? '';
-  }
+  /// Bookings the user made, or with [asHost] the ones they received.
+  Future<List<BookingModel>> getMyBookings({bool asHost = false}) =>
+      guardApi(() async {
+        final res = await _client.dio.get(
+          ApiConstants.bookings,
+          queryParameters: {'page_size': 50, if (asHost) 'role': 'host'},
+        );
+        return _results(res.data)
+            .map((e) => BookingModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      });
 
-  Future<BookingModel> confirmBooking(String bookingId) async {
-    final res = await _client.dio.post(ApiConstants.confirmBooking(bookingId));
-    return BookingModel.fromJson(res.data as Map<String, dynamic>);
-  }
+  Future<BookingModel> cancelBooking(String bookingId) => guardApi(() async {
+        final res =
+            await _client.dio.post(ApiConstants.cancelBooking(bookingId));
+        return BookingModel.fromJson(res.data as Map<String, dynamic>);
+      });
 
-  Future<List<BookingModel>> getMyBookings() async {
-    try {
-      final res = await _client.dio.get(ApiConstants.bookings);
-      final data = res.data;
-      List<dynamic> list = data is List ? data : (data['results'] ?? []);
-      return list.map((e) => BookingModel.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      return [];
-    }
-  }
+  Future<void> reviewBooking(
+    String bookingId, {
+    required int rating,
+    String? comment,
+  }) =>
+      guardApi(() async {
+        await _client.dio.post(
+          ApiConstants.reviewBooking(bookingId),
+          data: {'rating': rating, if (comment != null) 'comment': comment},
+        );
+      });
 
-  List<SlotModel> _mockSlots(String hostId) {
-    final now = DateTime.now();
-    return List.generate(5, (i) {
-      final start = now.add(Duration(days: i + 1, hours: 9 + (i % 4)));
-      return SlotModel(
-        id: 's$i',
-        hostId: hostId,
-        startAt: start,
-        endAt: start.add(const Duration(hours: 1)),
-        status: SlotStatus.available,
-      );
-    });
-  }
+  Future<List<HostReview>> getHostReviews(String hostId) => guardApi(() async {
+        final res = await _client.dio.get(ApiConstants.profileReviews(hostId));
+        return _results(res.data)
+            .map((e) => HostReview.fromJson(e as Map<String, dynamic>))
+            .toList();
+      });
+
+  Future<PaymentConfig> getPaymentConfig() => guardApi(() async {
+        final res = await _client.dio.get(ApiConstants.paymentConfig);
+        return PaymentConfig.fromJson(res.data as Map<String, dynamic>);
+      });
+
+  Future<String> createPaymentIntent(String bookingId) => guardApi(() async {
+        final res = await _client.dio.post(
+          ApiConstants.createPaymentIntent,
+          data: {'booking_id': int.tryParse(bookingId) ?? bookingId},
+        );
+        return (res.data as Map)['client_secret'] as String;
+      });
+
+  /// Tells the server the payment sheet succeeded. Returns the payment status.
+  Future<String> capturePayment(String bookingId) => guardApi(() async {
+        final res =
+            await _client.dio.post(ApiConstants.capturePayment(bookingId));
+        return (res.data as Map)['status'] as String? ?? '';
+      });
 }

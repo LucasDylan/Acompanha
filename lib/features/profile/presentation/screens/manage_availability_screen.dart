@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/models/slot_model.dart';
@@ -22,17 +23,22 @@ class ManageAvailabilityScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Meus horários')),
       body: myProfile.when(
         loading: () => const AppLoading(),
-        error: (_, __) => const EmptyState(
+        error: (e, _) => EmptyState(
           icon: Icons.error_outline_rounded,
           title: 'Não foi possível carregar seu perfil',
-          message: 'Tente novamente mais tarde.',
+          message: e.toString(),
+          tone: EmptyStateTone.error,
+          actionLabel: 'Tentar de novo',
+          onAction: () => ref.invalidate(myProfileProvider),
         ),
         data: (profile) {
           if (profile == null) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.workspace_premium_rounded,
               title: 'Crie seu perfil de anfitrião primeiro',
               message: 'Você precisa ter um perfil de anfitrião para publicar horários.',
+              actionLabel: 'Criar perfil',
+              onAction: () => context.push('/host-profile/edit'),
             );
           }
           return _SlotsList(hostId: profile.id);
@@ -79,6 +85,9 @@ class _SlotsList extends ConsumerWidget {
         icon: Icons.error_outline_rounded,
         title: 'Erro ao carregar horários',
         message: e.toString(),
+        tone: EmptyStateTone.error,
+        actionLabel: 'Tentar de novo',
+        onAction: () => ref.invalidate(mySlotsProvider(hostId)),
       ),
       data: (slots) {
         if (slots.isEmpty) {
@@ -132,7 +141,7 @@ class _SlotTile extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(slot.dateLabel, style: t.titleSmall),
+                Text(toBeginningOfSentenceCase(slot.dateLabel), style: t.titleSmall),
                 const SizedBox(height: AppSpacing.x4),
                 Text(slot.timeLabel, style: t.bodyMedium?.copyWith(color: AppColors.ink500)),
                 const SizedBox(height: AppSpacing.x8),
@@ -160,13 +169,19 @@ class _SlotTile extends ConsumerWidget {
                     title: const Text('Remover horário?'),
                     content: const Text('Esse horário deixará de ficar disponível para reserva.'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Voltar')),
                       TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remover')),
                     ],
                   ),
                 );
-                if (confirmed == true) {
+                if (confirmed != true) return;
+                try {
                   await ref.read(mySlotsProvider(hostId).notifier).deleteSlot(slot.id);
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+                  );
                 }
               },
             ),
@@ -209,9 +224,15 @@ class _AddSlotSheetState extends ConsumerState<_AddSlotSheet> {
   }
 
   Future<void> _save() async {
-    setState(() => _saving = true);
     final start = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
     final end = start.add(Duration(minutes: _durationMinutes));
+    if (!start.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escolha um horário no futuro.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
     try {
       await ref
           .read(mySlotsProvider(widget.hostId).notifier)

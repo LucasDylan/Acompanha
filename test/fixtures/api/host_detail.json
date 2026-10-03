@@ -1,0 +1,19 @@
+{
+  "id": "503",
+  "user_id": "506",
+  "display_name": "Bia Host",
+  "bio": "Mentoria.",
+  "avatar_url": null,
+  "photos": [],
+  "categories": [
+    "mentorship",
+    "coffee"
+  ],
+  "price_per_hour": 80.0,
+  "currency": "BRL",
+  "rating": 4.5,
+  "review_count": 1,
+  "location": "São Paulo, SP",
+  "is_trainer": false,
+  "is_active": true
+}

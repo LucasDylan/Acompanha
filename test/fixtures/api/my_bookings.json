@@ -1,0 +1,113 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": "5",
+      "client_id": "505",
+      "host_id": "503",
+      "host_user_id": "506",
+      "slot_id": "5455",
+      "status": "confirmed",
+      "amount": 120.0,
+      "currency": "BRL",
+      "slot": {
+        "id": "5455",
+        "host_id": "503",
+        "start_at": "2026-10-05T00:05:01.995495Z",
+        "end_at": "2026-10-05T01:35:01.995495Z",
+        "status": "booked",
+        "booking_id": "5"
+      },
+      "host": {
+        "id": "503",
+        "user_id": "506",
+        "display_name": "Bia Host",
+        "bio": "Mentoria.",
+        "avatar_url": null,
+        "photos": [],
+        "categories": [
+          "mentorship",
+          "coffee"
+        ],
+        "price_per_hour": 80.0,
+        "currency": "BRL",
+        "rating": 4.5,
+        "review_count": 1,
+        "location": "São Paulo, SP",
+        "is_trainer": false,
+        "is_active": true
+      },
+      "client": {
+        "id": 505,
+        "display_name": "Ana",
+        "avatar_url": null
+      },
+      "start_at": "2026-10-05T00:05:01.995495Z",
+      "end_at": "2026-10-05T01:35:01.995495Z",
+      "payment_status": null,
+      "cancelled_at": null,
+      "cancelled_by_host": false,
+      "refundable_if_cancelled": true,
+      "review": null,
+      "created_at": "2026-10-03T00:05:02.052508Z"
+    },
+    {
+      "id": "4",
+      "client_id": "505",
+      "host_id": "503",
+      "host_user_id": "506",
+      "slot_id": "5456",
+      "status": "completed",
+      "amount": 80.0,
+      "currency": "BRL",
+      "slot": {
+        "id": "5456",
+        "host_id": "503",
+        "start_at": "2026-10-01T00:05:01.995495Z",
+        "end_at": "2026-10-01T01:05:01.995495Z",
+        "status": "booked",
+        "booking_id": "4"
+      },
+      "host": {
+        "id": "503",
+        "user_id": "506",
+        "display_name": "Bia Host",
+        "bio": "Mentoria.",
+        "avatar_url": null,
+        "photos": [],
+        "categories": [
+          "mentorship",
+          "coffee"
+        ],
+        "price_per_hour": 80.0,
+        "currency": "BRL",
+        "rating": 4.5,
+        "review_count": 1,
+        "location": "São Paulo, SP",
+        "is_trainer": false,
+        "is_active": true
+      },
+      "client": {
+        "id": 505,
+        "display_name": "Ana",
+        "avatar_url": null
+      },
+      "start_at": "2026-10-01T00:05:01.995495Z",
+      "end_at": "2026-10-01T01:05:01.995495Z",
+      "payment_status": null,
+      "cancelled_at": null,
+      "cancelled_by_host": false,
+      "refundable_if_cancelled": false,
+      "review": {
+        "id": 1,
+        "rating": 5,
+        "comment": "Ótima conversa",
+        "created_at": "2026-10-03T00:05:01.998491Z",
+        "author": "Ana"
+      },
+      "created_at": "2026-10-03T00:05:01.996855Z"
+    }
+  ]
+}

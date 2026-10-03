@@ -1,22 +1,23 @@
-
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/constants/api_constants.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exception.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import 'saved_account.dart';
 
-class AuthRepository {
+class AuthRepository implements TokenStore {
   AuthRepository({
     required ApiClient apiClient,
     required FlutterSecureStorage storage,
   })  : _client = apiClient,
-        _storage = storage;
+        _storage = storage {
+    _client.tokenStore = this;
+  }
 
   final ApiClient _client;
   final FlutterSecureStorage _storage;
@@ -26,121 +27,39 @@ class AuthRepository {
   static const _savedAccountsKey = 'saved_accounts';
   static const _maxSavedAccounts = 5;
 
-  Future<String?> getAccessToken() => _storage.read(key: _accessTokenKey);
-  Future<String?> getRefreshToken() => _storage.read(key: _refreshTokenKey);
+  @override
+  Future<String?> readRefreshToken() => _storage.read(key: _refreshTokenKey);
+
+  @override
+  Future<void> saveAccessToken(String token) =>
+      _storage.write(key: _accessTokenKey, value: token);
 
   Future<void> _saveTokens(String access, String? refresh) async {
     await _storage.write(key: _accessTokenKey, value: access);
     if (refresh != null) {
       await _storage.write(key: _refreshTokenKey, value: refresh);
     }
+    _client.setAccessToken(access);
   }
 
   Future<void> clearTokens() async {
+    _client.setAccessToken(null);
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
-    // Also drop the in-memory token so stale credentials don't leak into
-    // later requests after a failed refresh.
-    _client.setAccessToken(null);
   }
 
-  Future<UserModel> login(String email, String password) async {
+  /// Picks up the session stored on the device, if any. Returns null when
+  /// there is none or it can no longer be renewed. Network failures are
+  /// rethrown so the app can offer a retry instead of logging the user out.
+  Future<UserModel?> restoreSession() async {
+    final access = await _storage.read(key: _accessTokenKey);
+    final refresh = await readRefreshToken();
+    if ((access == null || access.isEmpty) && refresh == null) return null;
+    _client.setAccessToken(access ?? '');
     try {
-      final res = await _client.dio.post(
-        ApiConstants.login,
-        data: {'email': email, 'password': password},
-      );
-      final data = res.data as Map<String, dynamic>;
-      final access = data['access'] as String?;
-      final refresh = data['refresh'] as String?;
-      if (access == null) throw ApiException(message: 'No access token');
-
-      await _saveTokens(access, refresh);
-      _client.setAccessToken(access);
-      _client.addAuthInterceptor();
-
-      final userData = data['user'] as Map<String, dynamic>? ?? data;
-      final user = UserModel.fromJson(userData);
-      await _rememberAccount(user, refresh);
-      return user;
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
-
-  Future<UserModel> loginWithFacebook(String accessToken) async {
-    try {
-      final res = await _client.dio.post(
-        ApiConstants.facebookLogin,
-        data: {'access_token': accessToken},
-      );
-      final data = res.data as Map<String, dynamic>;
-      final access = data['access'] as String?;
-      final refresh = data['refresh'] as String?;
-      if (access == null) throw ApiException(message: 'No access token');
-
-      await _saveTokens(access, refresh);
-      _client.setAccessToken(access);
-      _client.addAuthInterceptor();
-
-      final userData = data['user'] as Map<String, dynamic>? ?? data;
-      final user = UserModel.fromJson(userData);
-      await _rememberAccount(user, refresh);
-      return user;
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
-
-  Future<UserModel> register({
-    required String email,
-    required String password,
-    String? displayName,
-    String role = 'client',
-  }) async {
-    try {
-      final res = await _client.dio.post(
-        ApiConstants.register,
-        data: {
-          'email': email,
-          'password': password,
-          if (displayName != null) 'display_name': displayName,
-          'role': role,
-        },
-      );
-      final data = res.data as Map<String, dynamic>;
-      final access = data['access'] as String?;
-      final refresh = data['refresh'] as String?;
-      final userData = data['user'] as Map<String, dynamic>? ?? data;
-      final user = UserModel.fromJson(userData);
-
-      if (access != null) {
-        await _saveTokens(access, refresh);
-        _client.setAccessToken(access);
-        _client.addAuthInterceptor();
-        await _rememberAccount(user, refresh);
-      }
-
-      return user;
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
-
-  Future<UserModel?> getCurrentUser() async {
-    final token = await getAccessToken();
-    if (token == null || token.isEmpty) return null;
-
-    _client.setAccessToken(token);
-    _client.addAuthInterceptor();
-
-    try {
-      final res = await _client.dio.get(ApiConstants.me);
-      return UserModel.fromJson(res.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        final refreshed = await _refreshToken();
-        if (refreshed) return getCurrentUser();
+      return await fetchMe();
+    } on ApiException catch (e) {
+      if (e.statusCode == 401) {
         await clearTokens();
         return null;
       }
@@ -148,55 +67,106 @@ class AuthRepository {
     }
   }
 
-  Future<bool> _refreshToken() async {
-    final refresh = await getRefreshToken();
-    if (refresh == null) return false;
+  Future<UserModel> fetchMe() => guardApi(() async {
+        final res = await _client.dio.get(ApiConstants.me);
+        return UserModel.fromJson(res.data as Map<String, dynamic>);
+      });
 
-    try {
-      final res = await _client.dio.post(
-        ApiConstants.refresh,
-        data: {'refresh': refresh},
-      );
-      final access = (res.data as Map)['access']?.toString();
-      if (access == null) return false;
-      await _storage.write(key: _accessTokenKey, value: access);
-      _client.setAccessToken(access);
-      return true;
-    } catch (_) {
-      return false;
+  /// Stores the tokens from a login/register response and returns the user.
+  Future<UserModel> _startSession(Map<String, dynamic> data) async {
+    final access = data['access'] as String?;
+    final refresh = data['refresh'] as String?;
+    if (access == null) {
+      throw ApiException(message: 'Resposta inesperada do servidor.');
     }
+    await _saveTokens(access, refresh);
+    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    await _rememberAccount(user, refresh);
+    return user;
   }
 
-  Future<void> requestPasswordReset(String email) async {
-    try {
-      await _client.dio.post(
-        ApiConstants.passwordResetRequest,
-        data: {'email': email},
-      );
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
+  Future<UserModel> login(String email, String password) => guardApi(() async {
+        final res = await _client.dio.post(
+          ApiConstants.login,
+          data: {'email': email, 'password': password},
+        );
+        return _startSession(res.data as Map<String, dynamic>);
+      });
+
+  Future<UserModel> loginWithFacebook(String accessToken) =>
+      guardApi(() async {
+        final res = await _client.dio.post(
+          ApiConstants.facebookLogin,
+          data: {'access_token': accessToken},
+        );
+        return _startSession(res.data as Map<String, dynamic>);
+      });
+
+  Future<UserModel> register({
+    required String email,
+    required String password,
+    String? displayName,
+  }) =>
+      guardApi(() async {
+        final res = await _client.dio.post(
+          ApiConstants.register,
+          data: {
+            'email': email,
+            'password': password,
+            if (displayName != null) 'display_name': displayName,
+          },
+        );
+        return _startSession(res.data as Map<String, dynamic>);
+      });
+
+  Future<void> requestPasswordReset(String email) => guardApi(() async {
+        await _client.dio.post(
+          ApiConstants.passwordResetRequest,
+          data: {'email': email},
+        );
+      });
 
   Future<void> confirmPasswordReset({
     required String email,
     required String code,
     required String newPassword,
-  }) async {
-    try {
-      await _client.dio.post(
-        ApiConstants.passwordResetConfirm,
-        data: {'email': email, 'code': code, 'new_password': newPassword},
-      );
-    } on DioException catch (e) {
-      throw ApiException.fromDio(e);
-    }
-  }
+  }) =>
+      guardApi(() async {
+        await _client.dio.post(
+          ApiConstants.passwordResetConfirm,
+          data: {'email': email, 'code': code, 'new_password': newPassword},
+        );
+      });
 
-  Future<void> logout() async {
-    // JWT logout is client-side (clear tokens). Optional: call backend blacklist.
+  /// Logging out keeps the device's "recent accounts" entry (and its refresh
+  /// token) so the user can come back with one tap; removing that entry is
+  /// what revokes it — see [removeSavedAccount].
+  Future<void> logout() => clearTokens();
+
+  Future<UserModel> updateProfile(Map<String, dynamic> fields) =>
+      guardApi(() async {
+        final res = await _client.dio.patch(ApiConstants.me, data: fields);
+        return UserModel.fromJson(res.data as Map<String, dynamic>);
+      });
+
+  Future<UserModel> uploadAvatar(File file) => guardApi(() async {
+        final form = FormData.fromMap({
+          'image': await MultipartFile.fromFile(
+            file.path,
+            filename: file.path.split('/').last,
+          ),
+        });
+        final res = await _client.dio.post(ApiConstants.myAvatar, data: form);
+        return UserModel.fromJson(res.data as Map<String, dynamic>);
+      });
+
+  /// Closes the account on the server, then forgets it on this device.
+  Future<void> deleteAccount(String email) async {
+    await guardApi(() => _client.dio.delete(ApiConstants.me));
+    final accounts = await getSavedAccounts();
+    accounts.removeWhere((a) => a.email == email);
+    await _writeSavedAccounts(accounts);
     await clearTokens();
-    _client.setAccessToken(null);
   }
 
   Future<List<SavedAccount>> getSavedAccounts() async {
@@ -266,24 +236,16 @@ class AuthRepository {
   /// If the refresh token has expired server-side, the account is dropped
   /// from the saved list so it stops being offered.
   Future<UserModel> loginWithSavedAccount(SavedAccount account) async {
-    try {
-      final res = await _client.dio.post(
-        ApiConstants.refresh,
-        data: {'refresh': account.refreshToken},
-      );
-      final access = (res.data as Map)['access']?.toString();
-      if (access == null) throw ApiException(message: 'Sessão expirada');
-
-      await _saveTokens(access, account.refreshToken);
-      _client.setAccessToken(access);
-      _client.addAuthInterceptor();
-
-      final user = await getCurrentUser();
-      if (user == null) throw ApiException(message: 'Sessão expirada');
-      return user;
-    } on DioException catch (e) {
+    await _storage.write(key: _refreshTokenKey, value: account.refreshToken);
+    final access = await _client.refreshAccessToken();
+    if (access == null) {
       await removeSavedAccount(account.email);
-      throw ApiException.fromDio(e);
+      await clearTokens();
+      throw ApiException(
+        message: 'Sessão expirada. Digite sua senha para ${account.email}.',
+        statusCode: 401,
+      );
     }
+    return fetchMe();
   }
 }

@@ -1,43 +1,38 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/models/host_profile_model.dart';
+import '../../../../core/constants/fitness.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_network_image.dart';
+import '../../../matches/models/gym_member_model.dart';
 
-/// Partner discovery card — image-first, dark, energetic gym feel.
-///
-/// Shows photo, name, fitness level badge, workout types, and a "Train
-/// together" action button so the user can send a match request inline.
+/// Gym-mate card — photo, name, level, workouts and the "train together" action.
 class PartnerCard extends StatelessWidget {
   const PartnerCard({
     super.key,
-    required this.host,
+    required this.member,
     required this.onTap,
-    this.onSendRequest,
-    this.requestSent = false,
+    required this.onAction,
+    this.busy = false,
   });
 
-  final HostProfileModel host;
+  final GymMemberModel member;
   final VoidCallback onTap;
-  final VoidCallback? onSendRequest;
 
-  /// Whether a request to this person is already on its way. Driven by the
-  /// caller (not local state) so a failed request leaves the button usable.
-  final bool requestSent;
+  /// Send / accept the request, or open the chat once matched.
+  final VoidCallback onAction;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final categories = host.categories;
-    final fitnessLevel = host.fitnessLevel ?? 'beginner';
 
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: AppRadius.brXl,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -52,31 +47,25 @@ class PartnerCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Photo hero — 4:5 portrait ratio.
                 AspectRatio(
-                  aspectRatio: 4 / 5,
+                  aspectRatio: 4 / 4,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       AppNetworkImage(
-                        url: host.avatarUrl,
-                        seed: host.displayName ?? host.id,
-                        initial: (host.displayName?.isNotEmpty ?? false)
-                            ? host.displayName![0]
-                            : null,
+                        url: member.avatarUrl,
+                        seed: member.name,
+                        initial: member.name[0],
                       ),
-                      // Gradient scrim.
                       const DecoratedBox(
                         decoration:
                             BoxDecoration(gradient: AppColors.photoScrim),
                       ),
-                      // Fitness level badge (top-left).
                       Positioned(
                         top: AppSpacing.x16,
                         left: AppSpacing.x16,
-                        child: _FitnessLevelBadge(level: fitnessLevel),
+                        child: FitnessLevelBadge(level: member.fitnessLevel),
                       ),
-                      // Name + location (bottom-left).
                       Positioned(
                         left: AppSpacing.x20,
                         right: AppSpacing.x20,
@@ -85,16 +74,18 @@ class PartnerCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              host.displayName ?? 'Parceiro',
+                              member.age == null
+                                  ? member.name
+                                  : '${member.name}, ${member.age}',
                               style: t.headlineSmall?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            if (host.bio != null && host.bio!.isNotEmpty) ...[
+                            if (member.bio != null) ...[
                               const SizedBox(height: AppSpacing.x4),
                               Text(
-                                host.bio!,
+                                member.bio!,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: t.bodyMedium?.copyWith(
@@ -108,26 +99,26 @@ class PartnerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // Bottom info strip.
                 Padding(
                   padding: const EdgeInsets.all(AppSpacing.x16),
                   child: Row(
                     children: [
-                      // Workout type chips.
                       Expanded(
                         child: Wrap(
                           spacing: AppSpacing.x6,
                           runSpacing: AppSpacing.x6,
-                          children: categories
+                          children: member.workoutTypes
                               .take(3)
                               .map((c) => _WorkoutTypeChip(label: c))
                               .toList(),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.x12),
-                      // Train together CTA.
-                      _TrainButton(sent: requestSent, onTap: onSendRequest),
+                      _ActionButton(
+                        status: member.matchStatus,
+                        busy: busy,
+                        onTap: onAction,
+                      ),
                     ],
                   ),
                 ),
@@ -140,32 +131,16 @@ class PartnerCard extends StatelessWidget {
   }
 }
 
-class _FitnessLevelBadge extends StatelessWidget {
-  const _FitnessLevelBadge({required this.level});
+class FitnessLevelBadge extends StatelessWidget {
+  const FitnessLevelBadge({super.key, required this.level});
 
-  final String level;
+  final String? level;
 
-  Color get _color {
-    switch (level) {
-      case 'advanced':
-        return AppColors.brand;
-      case 'intermediate':
-        return AppColors.accent;
-      default:
-        return AppColors.info;
-    }
-  }
-
-  String get _label {
-    switch (level) {
-      case 'advanced':
-        return '🔥 Avançado';
-      case 'intermediate':
-        return '⚡ Intermediário';
-      default:
-        return '🌱 Iniciante';
-    }
-  }
+  Color get _color => switch (level) {
+        'advanced' => AppColors.brand,
+        'intermediate' => AppColors.accent,
+        _ => AppColors.info,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +154,7 @@ class _FitnessLevelBadge extends StatelessWidget {
         borderRadius: AppRadius.brPill,
       ),
       child: Text(
-        _label,
+        Fitness.levelLabel(level),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -215,16 +190,30 @@ class _WorkoutTypeChip extends StatelessWidget {
   }
 }
 
-class _TrainButton extends StatelessWidget {
-  const _TrainButton({required this.sent, this.onTap});
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.status,
+    required this.onTap,
+    required this.busy,
+  });
 
-  final bool sent;
-  final VoidCallback? onTap;
+  final MatchStatus status;
+  final VoidCallback onTap;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
+    final (label, icon, filled) = switch (status) {
+      MatchStatus.none => ('Treinar', Icons.fitness_center_rounded, true),
+      MatchStatus.received => ('Aceitar', Icons.check_rounded, true),
+      MatchStatus.sent => ('Enviado', Icons.schedule_rounded, false),
+      MatchStatus.matched => ('Mensagem', Icons.chat_bubble_outline_rounded, false),
+    };
+    final enabled = !busy && status != MatchStatus.sent;
+    final fg = filled ? Colors.white : AppColors.ink600;
+
     return GestureDetector(
-      onTap: sent ? null : onTap,
+      onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         padding: const EdgeInsets.symmetric(
@@ -232,65 +221,31 @@ class _TrainButton extends StatelessWidget {
           vertical: AppSpacing.x10,
         ),
         decoration: BoxDecoration(
-          gradient: sent ? null : AppColors.brandGradient,
-          color: sent ? AppColors.ink200 : null,
+          gradient: filled ? AppColors.brandGradient : null,
+          color: filled ? null : AppColors.ink100,
           borderRadius: AppRadius.brPill,
-          boxShadow: sent
-              ? null
-              : [
-                  BoxShadow(
-                    color: AppColors.brand.withValues(alpha: 0.35),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              sent ? Icons.check_rounded : Icons.fitness_center_rounded,
-              color: sent ? AppColors.ink500 : Colors.white,
-              size: 16,
-            ),
+            if (busy)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+              )
+            else
+              Icon(icon, color: fg, size: 16),
             const SizedBox(width: 6),
             Text(
-              sent ? 'Enviado' : 'Treinar',
+              label,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: sent ? AppColors.ink500 : Colors.white,
+                    color: fg,
                     fontWeight: FontWeight.w700,
                   ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// Re-export so old imports of GlassChip still resolve.
-class GlassChip extends StatelessWidget {
-  const GlassChip({super.key, required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.x10,
-        vertical: AppSpacing.x4,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: AppRadius.brPill,
-        border: Border.all(color: Colors.white30),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
       ),
     );
   }

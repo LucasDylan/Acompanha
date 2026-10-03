@@ -1,34 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Maps a meeting category label (Portuguese or legacy English data) to a
-/// representative icon, so category cards never fall back to a generic glyph.
-IconData categoryIcon(String category) {
-  final c = _normalize(category);
-  if (c.contains('cafe') || c.contains('coffee')) return Icons.coffee_rounded;
-  if (c.contains('network')) return Icons.hub_rounded;
-  if (c.contains('mentor')) return Icons.school_rounded;
-  if (c.contains('idioma') || c.contains('language')) {
-    return Icons.translate_rounded;
-  }
-  if (c.contains('viagem') || c.contains('travel')) return Icons.luggage_rounded;
-  if (c.contains('social') || c.contains('casual')) {
-    return Icons.celebration_rounded;
-  }
-  if (c.contains('evento') || c.contains('event')) {
-    return Icons.local_activity_rounded;
-  }
-  return Icons.local_activity_rounded;
+/// A kind of meeting a host offers. The API stores [slug]; the app shows
+/// [label].
+class MeetingCategory {
+  const MeetingCategory(this.slug, this.label, this.icon);
+
+  final String slug;
+  final String label;
+  final IconData icon;
 }
 
-String _normalize(String s) {
-  s = s.toLowerCase().trim();
-  const map = {
-    'á': 'a', 'à': 'a', 'â': 'a', 'ã': 'a',
-    'é': 'e', 'ê': 'e',
-    'í': 'i',
-    'ó': 'o', 'ô': 'o', 'õ': 'o',
-    'ú': 'u', 'ç': 'c',
-  };
-  map.forEach((k, v) => s = s.replaceAll(k, v));
-  return s;
+const meetingCategories = <MeetingCategory>[
+  MeetingCategory('coffee', 'Café', Icons.coffee_rounded),
+  MeetingCategory('networking', 'Networking', Icons.hub_rounded),
+  MeetingCategory('mentorship', 'Mentoria', Icons.school_rounded),
+  MeetingCategory('language', 'Idiomas', Icons.translate_rounded),
+  MeetingCategory('travel', 'Viagem', Icons.luggage_rounded),
+  MeetingCategory('social', 'Social', Icons.celebration_rounded),
+  MeetingCategory('workout', 'Treino', Icons.fitness_center_rounded),
+];
+
+MeetingCategory? _find(String slug) {
+  for (final c in meetingCategories) {
+    if (c.slug == slug) return c;
+  }
+  return null;
 }
+
+String categoryLabel(String slug) => _find(slug)?.label ?? slug;
+
+IconData categoryIcon(String slug) =>
+    _find(slug)?.icon ?? Icons.local_activity_rounded;

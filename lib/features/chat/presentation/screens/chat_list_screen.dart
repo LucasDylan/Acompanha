@@ -4,66 +4,85 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/empty_state.dart';
+import '../../../auth/providers/auth_provider.dart';
+import '../../models/conversation_model.dart';
+import '../../providers/chat_provider.dart';
 
 class ChatListScreen extends ConsumerWidget {
   const ChatListScreen({super.key});
 
-  static const name = 'chat_list';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // MVP: static list. Real implementation would fetch from the API.
-    const conversations = <_ConvPreview>[
-      _ConvPreview(
-        id: '1',
-        name: 'Alex',
-        lastMessage: 'Mal posso esperar pelo nosso café! ☕',
-        time: '10:30',
-        unread: true,
-      ),
-      _ConvPreview(
-        id: '2',
-        name: 'Jordan',
-        lastMessage: 'Nos vemos no lobby do escritório.',
-        time: 'Ontem',
-        unread: false,
-      ),
-    ];
+    final conversations = ref.watch(conversationsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mensagens')),
-      body: conversations.isEmpty
+    Widget body;
+    if (conversations.hasValue) {
+      final list = conversations.value!;
+      body = list.isEmpty
           ? const EmptyState(
               icon: Icons.forum_outlined,
               title: 'Nenhuma mensagem ainda',
-              message: 'Depois de marcar um encontro, você conversa com o anfitrião aqui.',
+              message: 'Converse com um anfitrião depois de reservar, ou com '
+                  'um parceiro de treino depois que ele aceitar seu pedido.',
             )
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.x8),
-              itemCount: conversations.length,
-              separatorBuilder: (_, __) => const Divider(
-                height: 1,
-                indent: AppSpacing.x20 + 52 + AppSpacing.x12,
+          : RefreshIndicator(
+              onRefresh: () => ref.refresh(conversationsProvider.future),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.x8),
+                itemCount: list.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  indent: AppSpacing.x20 + 52 + AppSpacing.x12,
+                ),
+                itemBuilder: (context, index) =>
+                    _ConversationTile(conversation: list[index]),
               ),
-              itemBuilder: (context, index) =>
-                  _ConversationTile(conv: conversations[index]),
-            ),
+            );
+    } else if (conversations.hasError) {
+      body = EmptyState(
+        icon: Icons.cloud_off_rounded,
+        title: 'Não foi possível carregar as mensagens',
+        message: conversations.error.toString(),
+        tone: EmptyStateTone.error,
+        actionLabel: 'Tentar de novo',
+        onAction: () => ref.invalidate(conversationsProvider),
+      );
+    } else {
+      body = const AppLoading();
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mensagens')),
+      body: body,
     );
   }
 }
 
-class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conv});
+class _ConversationTile extends ConsumerWidget {
+  const _ConversationTile({required this.conversation});
 
-  final _ConvPreview conv;
+  final ConversationModel conversation;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
+    final myId = ref.watch(authStateProvider).valueOrNull?.id;
+    final last = conversation.lastMessage;
+    final unread = conversation.unreadCount > 0;
+    final preview = last == null
+        ? ''
+        : (last.senderId == myId ? 'Você: ${last.text}' : last.text);
+
     return InkWell(
-      onTap: () => context.push('/chat/${conv.id}'),
+      onTap: () async {
+        await context.push('/chat/${conversation.id}', extra: conversation);
+        ref.invalidate(conversationsProvider);
+        ref.invalidate(unreadCountProvider);
+      },
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.x20,
@@ -71,22 +90,25 @@ class _ConversationTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            AppAvatar(url: null, name: conv.name, radius: 26),
+            AppAvatar(
+              url: conversation.otherUser.avatarUrl,
+              name: conversation.otherUser.name,
+              radius: 26,
+            ),
             const SizedBox(width: AppSpacing.x12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(conv.name, style: t.titleMedium),
+                  Text(conversation.otherUser.name, style: t.titleMedium),
                   const SizedBox(height: AppSpacing.x2),
                   Text(
-                    conv.lastMessage,
+                    preview,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: t.bodyMedium?.copyWith(
-                      color: conv.unread ? AppColors.ink900 : AppColors.ink500,
-                      fontWeight:
-                          conv.unread ? FontWeight.w600 : FontWeight.w400,
+                      color: unread ? AppColors.ink900 : AppColors.ink500,
+                      fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
                 ],
@@ -96,19 +118,26 @@ class _ConversationTile extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(conv.time, style: t.bodySmall),
+                if (last != null)
+                  Text(formatRelativeDay(last.createdAt), style: t.bodySmall),
                 const SizedBox(height: AppSpacing.x6),
-                if (conv.unread)
+                if (unread)
                   Container(
-                    width: 10,
-                    height: 10,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.x6,
+                      vertical: 1,
+                    ),
                     decoration: const BoxDecoration(
                       color: AppColors.brand,
-                      shape: BoxShape.circle,
+                      borderRadius: AppRadius.brPill,
+                    ),
+                    child: Text(
+                      '${conversation.unreadCount}',
+                      style: t.labelSmall?.copyWith(color: Colors.white),
                     ),
                   )
                 else
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
               ],
             ),
           ],
@@ -116,20 +145,4 @@ class _ConversationTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ConvPreview {
-  const _ConvPreview({
-    required this.id,
-    required this.name,
-    required this.lastMessage,
-    required this.time,
-    required this.unread,
-  });
-
-  final String id;
-  final String name;
-  final String lastMessage;
-  final String time;
-  final bool unread;
 }

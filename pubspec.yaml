@@ -1,5 +1,5 @@
 name: projeto_apollo
-description: "A new Flutter project."
+description: "Acompanha — encontros com anfitriões e parceiros de treino."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -45,7 +45,6 @@ dependencies:
   flutter_secure_storage: ^9.2.2
 
   # Auth (optional social login)
-  google_sign_in: ^6.2.2
   flutter_facebook_auth: ^7.1.1
   local_auth: ^2.3.0
 
@@ -64,10 +63,6 @@ dependencies:
 
   # Maps (preferred meetup area)
   google_maps_flutter: ^2.9.0
-
-  # Forms & validation
-  flutter_form_builder: 10.3.0+2
-  form_builder_validators: ^11.0.0
 
   # Payments (Stripe)
   flutter_stripe: ^11.2.0

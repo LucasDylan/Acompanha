@@ -3,11 +3,13 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/category_meta.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/empty_state.dart';
+import '../../data/discovery_repository.dart';
 import '../../providers/discovery_provider.dart';
 import '../widgets/host_card.dart';
 import '../widgets/discovery_filters_sheet.dart';
@@ -17,80 +19,126 @@ class DiscoveryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hostsAsync = ref.watch(filteredHostsProvider);
+    final feed = ref.watch(discoveryFeedProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          slivers: [
-            const SliverToBoxAdapter(child: _DiscoveryHeader()),
-            const SliverToBoxAdapter(child: _WorkoutFilterRow()),
-            const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.x8)),
-            hostsAsync.when(
-              loading: () => const SliverToBoxAdapter(
-                child: SizedBox(height: 520, child: HostListSkeleton()),
-              ),
-              error: (e, _) => SliverFillRemaining(
-                hasScrollBody: false,
-                child: EmptyState(
-                  icon: Icons.cloud_off_rounded,
-                  title: 'Não foi possível carregar',
-                  message: 'Verifique sua conexão e tente novamente.',
-                  actionLabel: 'Tentar de novo',
-                  tone: EmptyStateTone.error,
-                  onAction: () => ref.invalidate(discoveryHostsProvider),
-                ),
-              ),
-              data: (partners) {
-                if (partners.isEmpty) {
-                  return const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyState(
-                      icon: Icons.person_search_rounded,
-                      title: 'Nenhum anfitrião por aqui ainda',
-                      message:
-                          'Ajuste os filtros ou explore outra região.',
+        child: RefreshIndicator(
+          onRefresh: () => ref.refresh(discoveryFeedProvider.future),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              // Fetch the next page a little before the end of the list.
+              if (n.metrics.extentAfter < 600) {
+                ref.read(discoveryFeedProvider.notifier).loadMore();
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                const SliverToBoxAdapter(child: _DiscoveryHeader()),
+                const SliverToBoxAdapter(child: _CategoryFilterRow()),
+                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.x8)),
+                ...feed.when(
+                  skipLoadingOnRefresh: true,
+                  loading: () => const [
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: 520, child: HostListSkeleton()),
                     ),
-                  );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.x16,
-                    AppSpacing.x4,
-                    AppSpacing.x16,
-                    AppSpacing.x24,
-                  ),
-                  sliver: SliverList.separated(
-                    itemCount: partners.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: AppSpacing.x16),
-                    itemBuilder: (context, index) {
-                      final partner = partners[index];
-                      return HostCard(
-                        host: partner,
-                        onTap: () => context.push('/host/${partner.id}'),
-                      )
-                          .animate()
-                          .fadeIn(
-                            duration: AppMotion.base,
-                            delay: (50 * index).ms,
-                          )
-                          .slideY(
-                            begin: 0.08,
-                            end: 0,
-                            curve: AppMotion.standard,
-                          );
-                    },
-                  ),
-                );
-              },
+                  ],
+                  error: (e, _) => [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'Não foi possível carregar',
+                        message: e.toString(),
+                        actionLabel: 'Tentar de novo',
+                        tone: EmptyStateTone.error,
+                        onAction: () => ref.invalidate(discoveryFeedProvider),
+                      ),
+                    ),
+                  ],
+                  data: (data) => _results(context, ref, data),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  List<Widget> _results(BuildContext context, WidgetRef ref, HostFeed feed) {
+    if (feed.items.isEmpty) {
+      final filtered = ref.read(discoveryFiltersProvider).activeCount > 0;
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyState(
+            icon: Icons.person_search_rounded,
+            title: 'Nenhum anfitrião encontrado',
+            message: filtered
+                ? 'Tente tirar alguns filtros.'
+                : 'Ainda não há anfitriões por aqui.',
+            actionLabel: filtered ? 'Limpar filtros' : null,
+            onAction: filtered
+                ? () => ref.read(discoveryFiltersProvider.notifier).state =
+                    const DiscoveryFilters()
+                : null,
+          ),
+        ),
+      ];
+    }
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x16,
+          AppSpacing.x4,
+          AppSpacing.x16,
+          AppSpacing.x16,
+        ),
+        sliver: SliverList.separated(
+          itemCount: feed.items.length,
+          separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.x16),
+          itemBuilder: (context, index) {
+            final host = feed.items[index];
+            final card = HostCard(
+              host: host,
+              onTap: () => context.push('/host/${host.id}', extra: host),
+            );
+            // Only the first screenful animates in; later pages just appear.
+            if (index > 5) return card;
+            return card
+                .animate()
+                .fadeIn(duration: AppMotion.base, delay: (50 * index).ms)
+                .slideY(begin: 0.08, end: 0, curve: AppMotion.standard);
+          },
+        ),
+      ),
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.x32),
+          child: Center(
+            child: feed.loadingMore
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : feed.loadMoreFailed
+                    ? TextButton(
+                        onPressed: () =>
+                            ref.read(discoveryFeedProvider.notifier).loadMore(),
+                        child: const Text('Falha ao carregar mais · tentar de novo'),
+                      )
+                    : const SizedBox.shrink(),
+          ),
+        ),
+      ),
+    ];
   }
 }
 
@@ -115,36 +163,9 @@ class _DiscoveryHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.x8,
-                        vertical: AppSpacing.x4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.brand.withValues(alpha: 0.15),
-                        borderRadius: AppRadius.brPill,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.location_on_rounded,
-                            size: 12,
-                            color: AppColors.brand400,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Minha Região',
-                            style: t.labelSmall?.copyWith(
-                              color: AppColors.brand400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Olá! 👋',
+                  style: t.labelLarge?.copyWith(color: AppColors.brand600),
                 ),
                 const SizedBox(height: AppSpacing.x8),
                 Text(
@@ -207,27 +228,32 @@ class _CircleIconButton extends StatelessWidget {
 class _FilterButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Material(
-      color: AppColors.surface,
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          builder: (_) => const DiscoveryFiltersSheet(),
-        ),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.ink300, width: 1),
+    final active = ref.watch(discoveryFiltersProvider).activeCount;
+    return Badge(
+      isLabelVisible: active > 0,
+      label: Text('$active'),
+      child: Material(
+        color: AppColors.surface,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => const DiscoveryFiltersSheet(),
           ),
-          child: const Icon(
-            Icons.tune_rounded,
-            color: AppColors.ink700,
-            size: 22,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.ink300, width: 1),
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: AppColors.ink700,
+              size: 22,
+            ),
           ),
         ),
       ),
@@ -235,47 +261,43 @@ class _FilterButton extends ConsumerWidget {
   }
 }
 
-/// Workout type quick-filter chips.
-class _WorkoutFilterRow extends ConsumerWidget {
-  const _WorkoutFilterRow();
-
-  static const _workouts = [
-    'Musculação',
-    'Cardio',
-    'CrossFit',
-    'Funcional',
-    'Pilates',
-    'Calistenia',
-    'Natação',
-  ];
+/// Category quick-filter chips (server-side filter on the feed).
+class _CategoryFilterRow extends ConsumerWidget {
+  const _CategoryFilterRow();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(selectedCategoryProvider);
+    final filters = ref.watch(discoveryFiltersProvider);
+    final selected =
+        filters.categories.length == 1 ? filters.categories.first : null;
+
+    void select(String? slug) {
+      ref.read(discoveryFiltersProvider.notifier).state =
+          filters.withCategories(slug == null ? const [] : [slug]);
+    }
 
     return SizedBox(
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x20),
-        itemCount: _workouts.length + 1,
+        itemCount: meetingCategories.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.x8),
         itemBuilder: (context, index) {
           if (index == 0) {
-            return _WorkoutChip(
+            return _FilterChip(
               label: 'Todos',
-              selected: selected == null,
-              onTap: () =>
-                  ref.read(selectedCategoryProvider.notifier).state = null,
+              selected: filters.categories.isEmpty,
+              onTap: () => select(null),
             );
           }
-          final w = _workouts[index - 1];
-          return _WorkoutChip(
-            label: w,
-            selected: selected == w,
+          final category = meetingCategories[index - 1];
+          return _FilterChip(
+            label: category.label,
+            icon: category.icon,
+            selected: selected == category.slug,
             onTap: () =>
-                ref.read(selectedCategoryProvider.notifier).state =
-                    selected == w ? null : w,
+                select(selected == category.slug ? null : category.slug),
           );
         },
       ),
@@ -283,20 +305,23 @@ class _WorkoutFilterRow extends ConsumerWidget {
   }
 }
 
-class _WorkoutChip extends StatelessWidget {
-  const _WorkoutChip({
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final fg = selected ? Colors.white : AppColors.ink700;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -313,12 +338,21 @@ class _WorkoutChip extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Text(
-          label,
-          style: t.labelMedium?.copyWith(
-            color: selected ? Colors.white : AppColors.ink700,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: AppSpacing.x6),
+            ],
+            Text(
+              label,
+              style: t.labelMedium?.copyWith(
+                color: fg,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

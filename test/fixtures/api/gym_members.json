@@ -1,0 +1,30 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 505,
+      "display_name": "Ana",
+      "avatar_url": null,
+      "gym": {
+        "id": 2,
+        "name": "Academia Contrato",
+        "address": "",
+        "city": "São Paulo, SP",
+        "member_count": 2
+      },
+      "fitness_level": "intermediate",
+      "workout_types": [
+        "Musculação"
+      ],
+      "available_days": [
+        "Seg",
+        "Qua"
+      ],
+      "bio": "Treino cedo.",
+      "age": 30,
+      "match_status": "matched"
+    }
+  ]
+}

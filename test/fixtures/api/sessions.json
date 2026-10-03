@@ -1,0 +1,29 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 1,
+      "initiator": {
+        "id": 505,
+        "display_name": "Ana",
+        "avatar_url": null,
+        "fitness_level": "intermediate"
+      },
+      "partner": {
+        "id": 506,
+        "display_name": "Bia",
+        "avatar_url": null,
+        "fitness_level": "beginner"
+      },
+      "gym": 2,
+      "scheduled_at": "2026-10-04T00:05:01.995495Z",
+      "duration_minutes": 60,
+      "workout_type": "Cardio",
+      "notes": "",
+      "status": "pending",
+      "created_at": "2026-10-03T00:05:02.003167Z"
+    }
+  ]
+}

@@ -91,7 +91,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       return HostCard(
                         host: r.host,
                         distanceLabel: r.distanceLabel,
-                        onTap: () => context.push('/host/${r.host.id}'),
+                        onTap: () => context.push('/host/${r.host.id}', extra: r.host),
                       );
                     },
                   );

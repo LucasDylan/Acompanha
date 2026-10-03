@@ -1,4 +1,4 @@
-import 'package:intl/intl.dart';
+import '../utils/formatters.dart';
 
 enum SlotStatus { available, booked, past, cancelled }
 
@@ -14,12 +14,13 @@ class SlotModel {
 
   factory SlotModel.fromJson(Map<String, dynamic> json) {
     return SlotModel(
-      id: json['id'] as String,
-      hostId: json['host_id'] as String,
-      startAt: DateTime.parse(json['start_at'] as String),
-      endAt: DateTime.parse(json['end_at'] as String),
+      id: json['id'].toString(),
+      hostId: json['host_id'].toString(),
+      // The API sends UTC; show it in the phone's time zone.
+      startAt: DateTime.parse(json['start_at'] as String).toLocal(),
+      endAt: DateTime.parse(json['end_at'] as String).toLocal(),
       status: _statusFromString(json['status'] as String?),
-      bookingId: json['booking_id'] as String?,
+      bookingId: json['booking_id']?.toString(),
     );
   }
 
@@ -43,12 +44,16 @@ class SlotModel {
   final SlotStatus status;
   final String? bookingId;
 
-  bool get isAvailable => status == SlotStatus.available;
+  bool get isAvailable =>
+      status == SlotStatus.available && startAt.isAfter(DateTime.now());
 
-  String get timeLabel {
-    final f = DateFormat('HH:mm');
-    return '${f.format(startAt)} - ${f.format(endAt)}';
-  }
+  int get durationMinutes => endAt.difference(startAt).inMinutes;
 
-  String get dateLabel => DateFormat('MMM d, y').format(startAt);
+  String get timeLabel => '${formatTime(startAt)} – ${formatTime(endAt)}';
+
+  String get dateLabel => formatDayMonth(startAt);
+
+  /// What booking this slot costs at [pricePerHour].
+  double priceFor(double pricePerHour) =>
+      (pricePerHour * durationMinutes / 60 * 100).round() / 100;
 }

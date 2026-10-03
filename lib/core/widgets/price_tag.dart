@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../utils/formatters.dart';
 
 /// Renders a price with a clear "amount / unit" hierarchy — the big number
 /// reads first, the unit (`/hr`) is demoted. Used on cards, profile and the
@@ -9,8 +10,8 @@ class PriceTag extends StatelessWidget {
   const PriceTag({
     super.key,
     required this.amount,
-    this.currency = 'USD',
-    this.unit = 'hr',
+    this.currency = 'BRL',
+    this.unit = 'h',
     this.large = false,
     this.onPhoto = false,
   });
@@ -20,14 +21,6 @@ class PriceTag extends StatelessWidget {
   final String unit;
   final bool large;
   final bool onPhoto;
-
-  String get _symbol => switch (currency.toUpperCase()) {
-        'USD' => '\$',
-        'BRL' => 'R\$',
-        'EUR' => '€',
-        'GBP' => '£',
-        _ => '$currency ',
-      };
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +32,7 @@ class PriceTag extends StatelessWidget {
       text: TextSpan(
         children: [
           TextSpan(
-            text: '$_symbol${amount.toStringAsFixed(0)}',
+            text: formatMoney(amount, currency, compact: true),
             style: (large ? t.titleLarge : t.titleMedium)?.copyWith(color: color),
           ),
           TextSpan(

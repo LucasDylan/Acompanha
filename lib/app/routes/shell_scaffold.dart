@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../features/chat/providers/chat_provider.dart';
 
-class ShellScaffold extends StatelessWidget {
+class ShellScaffold extends ConsumerWidget {
   const ShellScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
+  static const _messagesBranch = 3;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadCountProvider).valueOrNull ?? 0;
+
+    Widget messagesIcon(IconData icon) => Badge(
+          isLabelVisible: unread > 0,
+          label: Text(unread > 99 ? '99+' : '$unread'),
+          child: Icon(icon),
+        );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: navigationShell,
@@ -20,32 +32,35 @@ class ShellScaffold extends StatelessWidget {
         ),
         child: NavigationBar(
           selectedIndex: navigationShell.currentIndex,
-          onDestinationSelected: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
-          destinations: const [
-            NavigationDestination(
+          onDestinationSelected: (index) {
+            if (index == _messagesBranch) ref.invalidate(conversationsProvider);
+            navigationShell.goBranch(
+              index,
+              initialLocation: index == navigationShell.currentIndex,
+            );
+          },
+          destinations: [
+            const NavigationDestination(
               icon: Icon(Icons.explore_outlined),
               selectedIcon: Icon(Icons.explore_rounded),
               label: 'Descobrir',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.people_outline_rounded),
               selectedIcon: Icon(Icons.people_rounded),
               label: 'Parceiros',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.calendar_today_outlined),
               selectedIcon: Icon(Icons.calendar_today_rounded),
               label: 'Reservas',
             ),
             NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline_rounded),
-              selectedIcon: Icon(Icons.chat_bubble_rounded),
+              icon: messagesIcon(Icons.chat_bubble_outline_rounded),
+              selectedIcon: messagesIcon(Icons.chat_bubble_rounded),
               label: 'Mensagens',
             ),
-            NavigationDestination(
+            const NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
               label: 'Perfil',

@@ -10,6 +10,7 @@ class PhotoPicker extends StatelessWidget {
     required this.existingUrls,
     required this.onPick,
     required this.onRemoveLocal,
+    this.onRemoveExisting,
     this.maxCount = 6,
   });
 
@@ -17,6 +18,7 @@ class PhotoPicker extends StatelessWidget {
   final List<String> existingUrls;
   final VoidCallback onPick;
   final void Function(int index) onRemoveLocal;
+  final void Function(String url)? onRemoveExisting;
   final int maxCount;
 
   int get totalCount => localPhotos.length + existingUrls.length;
@@ -46,11 +48,15 @@ class PhotoPicker extends StatelessWidget {
           height: 100,
           child: ListView(
             scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.only(top: 8, right: 8),
             children: [
-              ...existingUrls.asMap().entries.map((e) => _PhotoThumb(
-                    image: e.value,
+              ...existingUrls.map((url) => _PhotoThumb(
+                    image: url,
                     isNetwork: true,
-                    onRemove: null,
+                    onRemove: onRemoveExisting == null
+                        ? null
+                        : () => onRemoveExisting!(url),
                   )),
               ...localPhotos.asMap().entries.map((e) => _PhotoThumb(
                     file: e.value,

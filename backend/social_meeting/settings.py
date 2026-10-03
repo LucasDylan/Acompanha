@@ -8,11 +8,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 AUTH_USER_MODEL = 'accounts.User'
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-change-in-prod')
+_DEV_SECRET_KEY = 'dev-secret-change-in-prod'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', _DEV_SECRET_KEY)
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
+if not DEBUG and SECRET_KEY == _DEV_SECRET_KEY:
+    raise RuntimeError('Set DJANGO_SECRET_KEY to a long random value before running with DJANGO_DEBUG=False.')
 # In production, set DJANGO_ALLOWED_HOSTS to a comma-separated list, e.g.
 # "api.acompanha.app,acompanha.app". Defaults to "*" only for local dev.
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+
+# User-facing API errors (DRF + password validators) come back in Portuguese,
+# which is what the app shows on screen.
+LANGUAGE_CODE = 'pt-br'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
 
 INSTALLED_APPS = [
     'unfold',
@@ -32,6 +42,7 @@ INSTALLED_APPS = [
     'bookings',
     'matches',
     'payments',
+    'chat',
 ]
 
 MIDDLEWARE = [
@@ -95,6 +106,15 @@ REST_FRAMEWORK = {
     # as JSON numbers, not strings — DRF defaults to string to avoid float
     # precision loss, but our client-side parsing needs real numbers.
     'COERCE_DECIMAL_TO_STRING': False,
+    # Only views that set `throttle_scope` are throttled. The password-reset
+    # limits are what keep a 6-digit code from being guessed by brute force.
+    'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.ScopedRateThrottle'],
+    'DEFAULT_THROTTLE_RATES': {
+        'auth': '20/min',
+        'password_reset': '5/hour',
+        'password_reset_confirm': '20/hour',
+        'messages': '60/min',
+    },
 }
 
 from datetime import timedelta
@@ -111,6 +131,20 @@ FACEBOOK_APP_SECRET = os.environ.get('FACEBOOK_APP_SECRET', '')
 
 # Stripe — get test/live secret keys from https://dashboard.stripe.com/apikeys
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+# Publishable key handed to the app by GET /payments/config/ so the app doesn't
+# need a rebuild to switch between test and live mode.
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+# When True, a booking is confirmed on creation without charging anything. Meant
+# for local development before Stripe is set up — on by default only in DEBUG
+# with no Stripe key, and never implied in production.
+ALLOW_UNPAID_BOOKINGS = os.environ.get(
+    'ALLOW_UNPAID_BOOKINGS',
+    'True' if DEBUG and not STRIPE_SECRET_KEY else 'False',
+).lower() == 'true'
+# A booking waiting for payment holds its slot only this long.
+BOOKING_PAYMENT_WINDOW_MINUTES = int(os.environ.get('BOOKING_PAYMENT_WINDOW_MINUTES', 30))
+# Clients get a refund when they cancel at least this long before the meeting.
+FREE_CANCELLATION_HOURS = int(os.environ.get('FREE_CANCELLATION_HOURS', 24))
 # Recurring price for the Personal Trainer Pro plan. Create it once with
 # `python manage.py setup_trainer_plan` and paste the printed price id here.
 STRIPE_TRAINER_PRICE_ID = os.environ.get('STRIPE_TRAINER_PRICE_ID', '')
@@ -138,11 +172,25 @@ CORS_ALLOWED_ORIGINS = [] if DEBUG else [
     origin for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if origin
 ]
 
+if not DEBUG:
+    # Behind a TLS-terminating proxy (Render, Railway, Fly, nginx...).
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True').lower() == 'true'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 0))
+    CSRF_TRUSTED_ORIGINS = [
+        origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin
+    ]
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
+# Let Django itself serve uploads when DEBUG is off (single-server deploys with
+# a persistent disk). Leave off when a storage bucket/CDN serves them.
+SERVE_MEDIA = os.environ.get('SERVE_MEDIA', 'False').lower() == 'true'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -1,14 +1,43 @@
-import 'package:intl/intl.dart';
-
+import '../utils/formatters.dart';
 import 'host_profile_model.dart';
 import 'slot_model.dart';
 
 enum BookingStatus {
-  pending,   // awaiting payment
+  pending, // awaiting payment
   confirmed, // paid, meeting scheduled
   completed,
   cancelled,
   disputed,
+}
+
+/// The person who booked, as the host sees them.
+class BookingClient {
+  const BookingClient({required this.id, this.displayName, this.avatarUrl});
+
+  factory BookingClient.fromJson(Map<String, dynamic> json) => BookingClient(
+        id: json['id'].toString(),
+        displayName: json['display_name'] as String?,
+        avatarUrl: json['avatar_url'] as String?,
+      );
+
+  final String id;
+  final String? displayName;
+  final String? avatarUrl;
+
+  String get name =>
+      (displayName?.trim().isNotEmpty ?? false) ? displayName! : 'Cliente';
+}
+
+class BookingReview {
+  const BookingReview({required this.rating, this.comment});
+
+  factory BookingReview.fromJson(Map<String, dynamic> json) => BookingReview(
+        rating: json['rating'] as int,
+        comment: json['comment'] as String?,
+      );
+
+  final int rating;
+  final String? comment;
 }
 
 class BookingModel {
@@ -19,36 +48,50 @@ class BookingModel {
     required this.slotId,
     required this.status,
     required this.amount,
-    this.currency = 'USD',
+    this.hostUserId,
+    this.currency = 'BRL',
     this.slot,
     this.host,
+    this.client,
     this.startAt,
     this.endAt,
     this.createdAt,
+    this.paymentStatus,
+    this.cancelledByHost = false,
+    this.refundableIfCancelled = false,
+    this.review,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
+    DateTime? date(String key) => json[key] != null
+        ? DateTime.parse(json[key] as String).toLocal()
+        : null;
     return BookingModel(
-      id: json['id'] as String,
-      clientId: json['client_id'] as String,
-      hostId: json['host_id'] as String,
-      slotId: json['slot_id'] as String,
+      id: json['id'].toString(),
+      clientId: json['client_id'].toString(),
+      hostId: json['host_id'].toString(),
+      hostUserId: json['host_user_id']?.toString(),
+      slotId: json['slot_id'].toString(),
       status: _statusFromString(json['status'] as String?),
       amount: (json['amount'] as num).toDouble(),
-      currency: json['currency'] as String? ?? 'USD',
+      currency: json['currency'] as String? ?? 'BRL',
       slot: json['slot'] != null
           ? SlotModel.fromJson(json['slot'] as Map<String, dynamic>)
           : null,
       host: json['host'] != null
           ? HostProfileModel.fromJson(json['host'] as Map<String, dynamic>)
           : null,
-      startAt: json['start_at'] != null
-          ? DateTime.parse(json['start_at'] as String)
+      client: json['client'] != null
+          ? BookingClient.fromJson(json['client'] as Map<String, dynamic>)
           : null,
-      endAt:
-          json['end_at'] != null ? DateTime.parse(json['end_at'] as String) : null,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+      startAt: date('start_at'),
+      endAt: date('end_at'),
+      createdAt: date('created_at'),
+      paymentStatus: json['payment_status'] as String?,
+      cancelledByHost: json['cancelled_by_host'] as bool? ?? false,
+      refundableIfCancelled: json['refundable_if_cancelled'] as bool? ?? false,
+      review: json['review'] != null
+          ? BookingReview.fromJson(json['review'] as Map<String, dynamic>)
           : null,
     );
   }
@@ -71,23 +114,37 @@ class BookingModel {
   final String id;
   final String clientId;
   final String hostId;
+  final String? hostUserId;
   final String slotId;
   final BookingStatus status;
   final double amount;
   final String currency;
   final SlotModel? slot;
   final HostProfileModel? host;
+  final BookingClient? client;
   final DateTime? startAt;
   final DateTime? endAt;
   final DateTime? createdAt;
+  final String? paymentStatus;
+  final bool cancelledByHost;
+  final bool refundableIfCancelled;
+  final BookingReview? review;
 
-  bool get canChat => status == BookingStatus.confirmed ||
-      status == BookingStatus.completed;
+  bool get isUpcoming =>
+      startAt != null && startAt!.isAfter(DateTime.now());
 
-  String get amountLabel => '$currency ${amount.toStringAsFixed(2)}';
+  bool get canCancel =>
+      isUpcoming &&
+      (status == BookingStatus.pending || status == BookingStatus.confirmed);
+
+  bool get canReview => status == BookingStatus.completed && review == null;
+
+  bool get awaitingPayment => status == BookingStatus.pending;
+
+  String get amountLabel => formatMoney(amount, currency);
 
   String get dateTimeLabel {
     if (startAt == null) return '';
-    return '${DateFormat('MMM d').format(startAt!)} at ${DateFormat('HH:mm').format(startAt!)}';
+    return '${formatDayMonth(startAt!)} · ${formatTime(startAt!)}';
   }
 }

@@ -3,236 +3,292 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/category_meta.dart';
+import '../../../../core/models/host_profile_model.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/empty_state.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../widgets/photo_picker.dart';
 
-class EditHostProfileScreen extends ConsumerStatefulWidget {
+/// Create or edit the user's paid-meetings listing.
+class EditHostProfileScreen extends ConsumerWidget {
   const EditHostProfileScreen({super.key});
 
-  static const name = 'edit_host_profile';
-
   @override
-  ConsumerState<EditHostProfileScreen> createState() =>
-      _EditHostProfileScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(myProfileProvider);
+    return profile.when(
+      loading: () => const Scaffold(body: AppLoading()),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: EmptyState(
+          icon: Icons.cloud_off_rounded,
+          title: 'Não foi possível carregar seu perfil',
+          message: e.toString(),
+          tone: EmptyStateTone.error,
+          actionLabel: 'Tentar de novo',
+          onAction: () => ref.invalidate(myProfileProvider),
+        ),
+      ),
+      data: (profile) => _HostProfileForm(profile: profile),
+    );
+  }
 }
 
-class _EditHostProfileScreenState extends ConsumerState<EditHostProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _bioController;
-  late TextEditingController _locationController;
-  late TextEditingController _priceController;
+class _HostProfileForm extends ConsumerStatefulWidget {
+  const _HostProfileForm({required this.profile});
 
-  List<String> _selectedCategories = [];
-  final List<File> _localPhotos = [];
-  List<String> _existingPhotoUrls = [];
-  bool _hasPrepopulated = false;
+  final HostProfileModel? profile;
+
+  @override
+  ConsumerState<_HostProfileForm> createState() => _HostProfileFormState();
+}
+
+class _HostProfileFormState extends ConsumerState<_HostProfileForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _bio = TextEditingController();
+  final _location = TextEditingController();
+  final _price = TextEditingController();
+  final _categories = <String>[];
+  final _newPhotos = <File>[];
+  late List<String> _existingPhotos;
+  bool _active = true;
+  bool _saving = false;
+  String? _categoryError;
+
+  bool get _isNew => widget.profile == null;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _bioController = TextEditingController();
-    _locationController = TextEditingController();
-    _priceController = TextEditingController();
-  }
-
-  void _prepopulateFromProfile(dynamic profile) {
-    if (profile == null || _hasPrepopulated) return;
-    _hasPrepopulated = true;
-    _nameController.text = profile.displayName ?? '';
-    _bioController.text = profile.bio ?? '';
-    _locationController.text = profile.location ?? '';
-    _priceController.text = profile.pricePerHour?.toString() ?? '';
-    _selectedCategories = List.from(profile.categories);
-    _existingPhotoUrls = List.from(profile.photos);
+    final p = widget.profile;
+    final user = ref.read(authStateProvider).valueOrNull;
+    _name.text = p?.displayName ?? user?.displayName ?? '';
+    _bio.text = p?.bio ?? '';
+    _location.text = p?.location ?? '';
+    _price.text = p?.pricePerHour?.toStringAsFixed(0) ?? '';
+    _categories.addAll(p?.categories ?? const []);
+    _existingPhotos = List.of(p?.photos ?? const []);
+    _active = p?.isActive ?? true;
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _bioController.dispose();
-    _locationController.dispose();
-    _priceController.dispose();
+    _name.dispose();
+    _bio.dispose();
+    _location.dispose();
+    _price.dispose();
     super.dispose();
   }
 
-  Future<void> _pickPhotos() async {
-    final picker = ImagePicker();
-    final images = await picker.pickMultiImage(
-      imageQuality: 80,
-      limit: AppConstants.maxPhotosPerProfile - _localPhotos.length - _existingPhotoUrls.length,
+  int get _photoCount => _existingPhotos.length + _newPhotos.length;
+
+  void _snack(String message, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? AppColors.error : null,
+      ),
     );
-    if (images.isNotEmpty) {
-      setState(() {
-        _localPhotos.addAll(
-          images.map((x) => File(x.path)),
-        );
-      });
-    }
   }
 
-  void _removeLocalPhoto(int index) {
-    setState(() => _localPhotos.removeAt(index));
-  }
-
-  void _toggleCategory(String cat) {
+  Future<void> _pickPhotos() async {
+    final remaining = AppConstants.maxPhotosPerProfile - _photoCount;
+    if (remaining <= 0) return;
+    final images = await ImagePicker().pickMultiImage(
+      imageQuality: 80,
+      maxWidth: 1600,
+      limit: remaining > 1 ? remaining : null,
+    );
+    if (images.isEmpty) return;
     setState(() {
-      if (_selectedCategories.contains(cat)) {
-        _selectedCategories.remove(cat);
-      } else {
-        _selectedCategories.add(cat);
-      }
+      _newPhotos.addAll(images.take(remaining).map((x) => File(x.path)));
     });
   }
 
+  Future<void> _removeExisting(String url) async {
+    final profile = widget.profile;
+    if (profile == null) return;
+    try {
+      await ref.read(profileRepositoryProvider).deletePhoto(profile.id, url);
+      setState(() => _existingPhotos.remove(url));
+    } catch (e) {
+      _snack(e.toString(), error: true);
+    }
+  }
+
+  double? get _priceValue =>
+      double.tryParse(_price.text.replaceAll(',', '.').trim());
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    setState(() => _categoryError =
+        _categories.isEmpty ? 'Escolha pelo menos um tipo de encontro' : null);
+    if (!_formKey.currentState!.validate() || _categoryError != null) return;
 
-    final formNotifier = ref.read(profileFormProvider.notifier);
-
-    // The backend /me/ endpoint upserts, so the same call both creates a new
-    // host profile and saves edits to an existing one.
-    final saved = await formNotifier.saveMyProfile(
-      displayName: _nameController.text.trim(),
-      bio: _bioController.text.trim().isNotEmpty
-          ? _bioController.text.trim()
-          : null,
-      categories: _selectedCategories.isNotEmpty ? _selectedCategories : null,
-      pricePerHour: double.tryParse(_priceController.text),
-      location: _locationController.text.trim().isNotEmpty
-          ? _locationController.text.trim()
-          : null,
-    );
-
-    if (saved != null) {
-      for (final f in _localPhotos) {
-        await formNotifier.uploadPhoto(saved.id, f);
+    setState(() => _saving = true);
+    final repo = ref.read(profileRepositoryProvider);
+    try {
+      final saved = await repo.saveMyProfile(
+        displayName: _name.text.trim(),
+        bio: _bio.text.trim(),
+        categories: _categories,
+        pricePerHour: _priceValue!,
+        location: _location.text.trim(),
+        isActive: _isNew ? null : _active,
+      );
+      var failedUploads = 0;
+      for (final file in _newPhotos) {
+        try {
+          await repo.uploadPhoto(saved.id, file);
+        } catch (_) {
+          failedUploads++;
+        }
       }
       ref.invalidate(myProfileProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil salvo')),
-        );
+      await ref.read(authStateProvider.notifier).refresh();
+      if (!mounted) return;
+      _snack(failedUploads == 0
+          ? (_isNew ? 'Perfil de anfitrião criado! Agora publique seus horários.' : 'Perfil salvo')
+          : 'Perfil salvo, mas $failedUploads foto(s) não foram enviadas.');
+      if (_isNew) {
+        context.pushReplacement('/manage-availability');
+      } else {
         context.pop();
       }
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            ref.read(profileFormProvider).error ??
-                'Não foi possível salvar o perfil.',
-          ),
-        ),
-      );
+    } catch (e) {
+      _snack(e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final formState = ref.watch(profileFormProvider);
-    final profile = ref.watch(myProfileProvider).valueOrNull;
-    _prepopulateFromProfile(profile);
-
+    final t = Theme.of(context).textTheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(profile != null ? 'Editar perfil' : 'Criar perfil de anfitrião'),
+        title: Text(_isNew ? 'Criar perfil de anfitrião' : 'Editar anúncio'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
         ),
-        actions: [
-          TextButton(
-            onPressed: formState.isLoading ? null : _save,
-            child: formState.isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Salvar'),
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PhotoPicker(
-                localPhotos: _localPhotos,
-                existingUrls: _existingPhotoUrls,
-                onPick: _pickPhotos,
-                onRemoveLocal: _removeLocalPhoto,
-                maxCount: AppConstants.maxPhotosPerProfile,
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.x20),
+          children: [
+            PhotoPicker(
+              localPhotos: _newPhotos,
+              existingUrls: _existingPhotos,
+              onPick: _pickPhotos,
+              onRemoveLocal: (i) => setState(() => _newPhotos.removeAt(i)),
+              onRemoveExisting: _removeExisting,
+              maxCount: AppConstants.maxPhotosPerProfile,
+            ),
+            const SizedBox(height: AppSpacing.x24),
+            TextFormField(
+              controller: _name,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Nome de exibição',
+                prefixIcon: Icon(Icons.person_outline_rounded),
               ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nome de exibição',
-                  prefixIcon: Icon(Icons.person),
-                ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Obrigatório' : null,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Obrigatório' : null,
+            ),
+            const SizedBox(height: AppSpacing.x16),
+            TextFormField(
+              controller: _bio,
+              maxLines: 4,
+              maxLength: AppConstants.maxBioLength,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Sobre você',
+                hintText: 'Conte o que você oferece e como costuma ser o encontro.',
+                alignLabelWithHint: true,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _bioController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Bio curta',
-                  alignLabelWithHint: true,
-                ),
-                maxLength: AppConstants.maxBioLength,
+            ),
+            const SizedBox(height: AppSpacing.x8),
+            Text('Tipos de encontro', style: t.titleSmall),
+            const SizedBox(height: AppSpacing.x8),
+            Wrap(
+              spacing: AppSpacing.x8,
+              runSpacing: AppSpacing.x8,
+              children: meetingCategories.map((c) {
+                final selected = _categories.contains(c.slug);
+                return FilterChip(
+                  avatar: Icon(c.icon, size: 16),
+                  label: Text(c.label),
+                  selected: selected,
+                  onSelected: (_) => setState(() {
+                    selected ? _categories.remove(c.slug) : _categories.add(c.slug);
+                    _categoryError = null;
+                  }),
+                );
+              }).toList(),
+            ),
+            if (_categoryError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.x6),
+                child: Text(_categoryError!,
+                    style: t.bodySmall?.copyWith(color: AppColors.error)),
               ),
-              const SizedBox(height: 16),
-              Text(
-                'Categorias',
-                style: Theme.of(context).textTheme.titleSmall,
+            const SizedBox(height: AppSpacing.x24),
+            TextFormField(
+              controller: _price,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Preço por hora',
+                prefixText: 'R\$ ',
+                prefixIcon: Icon(Icons.payments_outlined),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: AppConstants.meetingCategories.map((cat) {
-                  final selected = _selectedCategories.contains(cat);
-                  return FilterChip(
-                    label: Text(cat),
-                    selected: selected,
-                    onSelected: (_) => _toggleCategory(cat),
-                  );
-                }).toList(),
+              validator: (v) {
+                final price = _priceValue;
+                if (v == null || v.trim().isEmpty) return 'Informe o preço por hora';
+                if (price == null || price < 1) return 'Valor inválido';
+                if (price > 10000) return 'Máximo de R\$ 10.000 por hora';
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.x16),
+            TextFormField(
+              controller: _location,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Cidade',
+                hintText: 'Ex.: São Paulo, SP',
+                prefixIcon: Icon(Icons.location_on_outlined),
               ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _priceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Preço por hora (R\$)',
-                  prefixIcon: Icon(Icons.attach_money),
-                ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return null;
-                  if (double.tryParse(v) == null) return 'Número inválido';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Cidade',
-                  prefixIcon: Icon(Icons.location_on_outlined),
-                ),
+            ),
+            if (!_isNew) ...[
+              const SizedBox(height: AppSpacing.x12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Anúncio visível'),
+                subtitle: Text(_active
+                    ? 'Aparece na busca e aceita reservas.'
+                    : 'Pausado: ninguém encontra nem reserva.'),
+                value: _active,
+                onChanged: (v) => setState(() => _active = v),
               ),
             ],
-          ),
+            const SizedBox(height: AppSpacing.x24),
+            AppButton(
+              label: _isNew ? 'Criar perfil' : 'Salvar',
+              isLoading: _saving,
+              onPressed: _save,
+            ),
+          ],
         ),
       ),
     );

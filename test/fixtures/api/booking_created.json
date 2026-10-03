@@ -1,0 +1,50 @@
+{
+  "id": "5",
+  "client_id": "505",
+  "host_id": "503",
+  "host_user_id": "506",
+  "slot_id": "5455",
+  "status": "confirmed",
+  "amount": 120.0,
+  "currency": "BRL",
+  "slot": {
+    "id": "5455",
+    "host_id": "503",
+    "start_at": "2026-10-05T00:05:01.995495Z",
+    "end_at": "2026-10-05T01:35:01.995495Z",
+    "status": "booked",
+    "booking_id": "5"
+  },
+  "host": {
+    "id": "503",
+    "user_id": "506",
+    "display_name": "Bia Host",
+    "bio": "Mentoria.",
+    "avatar_url": null,
+    "photos": [],
+    "categories": [
+      "mentorship",
+      "coffee"
+    ],
+    "price_per_hour": 80.0,
+    "currency": "BRL",
+    "rating": 4.5,
+    "review_count": 1,
+    "location": "São Paulo, SP",
+    "is_trainer": false,
+    "is_active": true
+  },
+  "client": {
+    "id": 505,
+    "display_name": "Ana",
+    "avatar_url": null
+  },
+  "start_at": "2026-10-05T00:05:01.995495Z",
+  "end_at": "2026-10-05T01:35:01.995495Z",
+  "payment_status": null,
+  "cancelled_at": null,
+  "cancelled_by_host": false,
+  "refundable_if_cancelled": true,
+  "review": null,
+  "created_at": "2026-10-03T00:05:02.052508Z"
+}

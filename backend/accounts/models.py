@@ -1,8 +1,7 @@
 """
 User and auth models for Acompanha.
 """
-import random
-import string
+import secrets
 from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser
@@ -21,6 +20,9 @@ class User(AbstractUser):
     ]
 
     display_name = models.CharField(max_length=255, blank=True)
+    # Photo uploaded from the app. Takes precedence over avatar_url, which holds
+    # an external picture (e.g. the Facebook profile photo).
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     avatar_url = models.URLField(blank=True)
     facebook_id = models.CharField(max_length=64, null=True, blank=True, unique=True)
 
@@ -49,17 +51,32 @@ class User(AbstractUser):
     def __str__(self):
         return self.display_name or self.email
 
+    def avatar_absolute_url(self, request=None):
+        if self.avatar:
+            url = self.avatar.url
+            return request.build_absolute_uri(url) if request else url
+        return self.avatar_url or None
+
 
 class PasswordResetCode(models.Model):
     """A short-lived numeric code emailed to a user to authorize a password reset."""
+    # A code dies after this many wrong guesses, so it can't be brute-forced
+    # even from many IPs at once.
+    MAX_FAILED_ATTEMPTS = 5
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_codes')
     code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
     used = models.BooleanField(default=False)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
 
     def is_valid(self):
-        return not self.used and timezone.now() - self.created_at < timedelta(minutes=15)
+        return (
+            not self.used
+            and self.failed_attempts < self.MAX_FAILED_ATTEMPTS
+            and timezone.now() - self.created_at < timedelta(minutes=15)
+        )
 
     @staticmethod
     def generate_code():
-        return ''.join(random.choices(string.digits, k=6))
+        return f'{secrets.randbelow(1_000_000):06d}'

@@ -9,12 +9,29 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from bookings.models import Booking
+from bookings.services import expire_unpaid_bookings
 from .models import Payment, TrainerSubscription
+from .services import PaymentError, refund_payment
+
+# A pro trainer keeps the label while Stripe retries a failed renewal.
+TRAINER_LABEL_STATUSES = (TrainerSubscription.STATUS_ACTIVE, TrainerSubscription.STATUS_PAST_DUE)
 
 
 def _ts(value):
     """Stripe unix timestamp → aware datetime (None-safe)."""
     return datetime.fromtimestamp(value, tz=dt_timezone.utc) if value else None
+
+
+class PaymentConfigView(APIView):
+    """GET /payments/config/ — what the app needs to start Stripe's payment sheet."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            'enabled': bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+            'publishable_key': settings.STRIPE_PUBLISHABLE_KEY or None,
+            'unpaid_bookings_allowed': settings.ALLOW_UNPAID_BOOKINGS,
+        })
 
 
 class CreatePaymentIntentView(APIView):
@@ -24,18 +41,33 @@ class CreatePaymentIntentView(APIView):
     def post(self, request):
         if not settings.STRIPE_SECRET_KEY:
             return Response(
-                {'detail': 'Payments are not configured on the server.'},
+                {'detail': 'Pagamentos ainda não estão configurados no servidor.'},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
 
+        expire_unpaid_bookings()
         booking_id = request.data.get('booking_id')
         booking = get_object_or_404(Booking, pk=booking_id, client=request.user)
+        if booking.status != Booking.STATUS_PENDING:
+            return Response(
+                {'detail': 'Esta reserva não está aguardando pagamento.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
+        # Retrying payment reuses the same intent, so a customer can never be
+        # charged twice for one booking.
+        existing = Payment.objects.filter(booking=booking).first()
+        if existing and existing.status == Payment.STATUS_PENDING:
+            intent = stripe.PaymentIntent.retrieve(existing.stripe_payment_intent_id)
+            if intent['status'] not in ('canceled', 'succeeded'):
+                return Response({'client_secret': intent['client_secret']})
+
         intent = stripe.PaymentIntent.create(
             amount=int(booking.amount * 100),
             currency=booking.currency.lower(),
             metadata={'booking_id': str(booking.pk)},
+            automatic_payment_methods={'enabled': True},
         )
 
         Payment.objects.update_or_create(
@@ -51,13 +83,14 @@ class CreatePaymentIntentView(APIView):
 
 
 class CapturePaymentView(APIView):
-    """POST /payments/bookings/<booking_id>/capture/ — confirm the charge went through."""
+    """POST /payments/bookings/<booking_id>/capture/ — called by the app right
+    after the payment sheet succeeds; the webhook is the fallback."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, booking_id):
         if not settings.STRIPE_SECRET_KEY:
             return Response(
-                {'detail': 'Payments are not configured on the server.'},
+                {'detail': 'Pagamentos ainda não estão configurados no servidor.'},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
 
@@ -68,15 +101,21 @@ class CapturePaymentView(APIView):
         intent = stripe.PaymentIntent.retrieve(payment.stripe_payment_intent_id)
 
         if intent['status'] == 'succeeded':
-            payment.status = Payment.STATUS_CAPTURED
-            payment.save(update_fields=['status'])
-            booking.status = Booking.STATUS_CONFIRMED
-            booking.save(update_fields=['status', 'updated_at'])
-        else:
+            _settle_booking_payment(payment.stripe_payment_intent_id, Payment.STATUS_CAPTURED)
+            payment.refresh_from_db()
+            booking.refresh_from_db()
+            if booking.status == Booking.STATUS_CANCELLED:
+                return Response(
+                    {'detail': 'O tempo para pagar esta reserva acabou e o valor foi estornado. '
+                               'Escolha o horário de novo.',
+                     'status': payment.status},
+                    status=status.HTTP_409_CONFLICT,
+                )
+        elif intent['status'] in ('requires_payment_method', 'canceled'):
             payment.status = Payment.STATUS_FAILED
             payment.save(update_fields=['status'])
 
-        return Response({'status': payment.status})
+        return Response({'status': payment.status, 'booking_status': booking.status})
 
 
 class TrainerSubscriptionView(APIView):
@@ -101,14 +140,14 @@ class TrainerSubscriptionView(APIView):
     def post(self, request):
         if not settings.STRIPE_SECRET_KEY or not settings.STRIPE_TRAINER_PRICE_ID:
             return Response(
-                {'detail': 'Trainer subscriptions are not configured on the server.'},
+                {'detail': 'O plano Pro ainda não está configurado no servidor.'},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
 
         profile = getattr(request.user, 'host_profile', None)
         if profile is None:
             return Response(
-                {'detail': 'Create your host profile before subscribing.'},
+                {'detail': 'Crie seu perfil de anfitrião antes de assinar.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -117,7 +156,7 @@ class TrainerSubscriptionView(APIView):
             TrainerSubscription.STATUS_ACTIVE, TrainerSubscription.STATUS_PAST_DUE,
         ):
             return Response(
-                {'detail': 'This trainer already has a subscription.'},
+                {'detail': 'Você já tem uma assinatura ativa.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -142,12 +181,8 @@ class TrainerSubscriptionView(APIView):
             metadata={'host_profile_id': str(profile.pk)},
         )
 
-        # Mark the pro tier now; visibility still waits on an *active* status,
-        # which only the webhook (or a later GET) can confirm.
-        if not profile.is_trainer:
-            profile.is_trainer = True
-            profile.save(update_fields=['is_trainer', 'updated_at'])
-
+        # The pro label is only switched on once Stripe reports the plan active
+        # (see _sync_trainer_subscription) — abandoning checkout changes nothing.
         TrainerSubscription.objects.update_or_create(
             host=profile,
             defaults={
@@ -178,7 +213,12 @@ class CancelTrainerSubscriptionView(APIView):
         profile = getattr(request.user, 'host_profile', None)
         sub = getattr(profile, 'trainer_subscription', None) if profile else None
         if sub is None:
-            return Response({'detail': 'No subscription found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Nenhuma assinatura encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if not settings.STRIPE_SECRET_KEY:
+            return Response(
+                {'detail': 'Pagamentos ainda não estão configurados no servidor.'},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         stripe.Subscription.modify(sub.stripe_subscription_id, cancel_at_period_end=True)
@@ -234,16 +274,24 @@ def _settle_booking_payment(payment_intent_id, new_status):
         .filter(stripe_payment_intent_id=payment_intent_id)
         .first()
     )
-    if payment is None or payment.status == new_status:
+    if payment is None or payment.status in (new_status, Payment.STATUS_REFUNDED):
         return
 
     payment.status = new_status
     payment.save(update_fields=['status'])
 
-    if new_status == Payment.STATUS_CAPTURED:
-        booking = payment.booking
+    if new_status != Payment.STATUS_CAPTURED:
+        return
+    booking = payment.booking
+    if booking.status == Booking.STATUS_PENDING:
         booking.status = Booking.STATUS_CONFIRMED
         booking.save(update_fields=['status', 'updated_at'])
+    elif booking.status == Booking.STATUS_CANCELLED:
+        # Paid after the hold ran out (or after cancelling): give it back.
+        try:
+            refund_payment(payment)
+        except PaymentError:
+            pass  # Stays "captured" so it shows up for a manual refund in the admin.
 
 
 def _sync_trainer_subscription(stripe_subscription):
@@ -261,3 +309,9 @@ def _sync_trainer_subscription(stripe_subscription):
     sub.save(update_fields=[
         'status', 'cancel_at_period_end', 'current_period_end', 'updated_at',
     ])
+
+    host = sub.host
+    is_trainer = sub.status in TRAINER_LABEL_STATUSES
+    if host.is_trainer != is_trainer:
+        host.is_trainer = is_trainer
+        host.save(update_fields=['is_trainer', 'updated_at'])

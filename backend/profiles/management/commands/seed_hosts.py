@@ -1,16 +1,14 @@
 """Seed mock HostProfile records (with slots) for discovery performance testing."""
 import random
-from datetime import timedelta
 
 from django.contrib.auth.hashers import make_password
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.utils import timezone
 
 from accounts.models import User
+from profiles.categories import CATEGORIES
+from profiles.demo import SEED_PREFIX, future_slots
 from profiles.models import HostProfile, Slot
-
-SEED_PREFIX = 'seed_host_'
 
 FIRST_NAMES = [
     'Ana', 'Bruno', 'Carla', 'Diego', 'Elisa', 'Fábio', 'Gabriela', 'Hugo',
@@ -22,12 +20,20 @@ LAST_NAMES = [
     'Ferreira', 'Rodrigues', 'Carvalho', 'Gomes', 'Martins', 'Araújo', 'Lima',
     'Barbosa', 'Ribeiro', 'Cardoso', 'Teixeira', 'Moreira', 'Nascimento',
 ]
-CATEGORIES = ['coffee', 'mentorship', 'networking', 'language', 'travel']
+CATEGORY_LABELS = {
+    'coffee': 'café e boa conversa',
+    'networking': 'networking',
+    'mentorship': 'mentoria de carreira',
+    'language': 'prática de idiomas',
+    'travel': 'roteiros pela cidade',
+    'social': 'eventos e vida social',
+    'workout': 'treino acompanhado',
+}
 BIO_TEMPLATES = [
-    'Adoro trocar ideia sobre {cat} num café tranquilo.',
-    'Anos de experiência ajudando gente com {cat}. Bora marcar?',
-    'Disponível pra sessões de {cat}, presencial ou remoto.',
-    'Especialista em {cat} — feedback sincero e prático.',
+    'Adoro {cat}. Bora marcar?',
+    'Anos de experiência com {cat} — feedback sincero e prático.',
+    'Disponível para {cat}, presencial ou remoto.',
+    'Especialista em {cat}. Primeira conversa sem compromisso.',
 ]
 CITIES = [
     'São Paulo, SP', 'Rio de Janeiro, RJ', 'Belo Horizonte, MG', 'Curitiba, PR',
@@ -35,7 +41,6 @@ CITIES = [
     'Florianópolis, SC', 'Fortaleza, CE', 'Campinas, SP', 'Goiânia, GO',
 ]
 PRICES = [40, 50, 60, 70, 80, 90, 100, 120, 150, 180, 200, 250]
-SLOT_HOURS = [9, 10, 11, 14, 15, 16, 17, 18, 19]
 
 
 class Command(BaseCommand):
@@ -76,7 +81,7 @@ class Command(BaseCommand):
                 hosts.append(HostProfile(
                     user=user,
                     display_name=user.display_name,
-                    bio=random.choice(BIO_TEMPLATES).format(cat=cats[0]),
+                    bio=random.choice(BIO_TEMPLATES).format(cat=CATEGORY_LABELS[cats[0]]),
                     categories=cats,
                     price_per_hour=random.choice(PRICES),
                     currency='BRL',
@@ -89,19 +94,9 @@ class Command(BaseCommand):
 
             created_hosts = HostProfile.objects.filter(user__in=created_users)
 
-            now = timezone.now()
             slots = []
             for host in created_hosts:
-                for _ in range(random.randint(3, 8)):
-                    day_offset = random.randint(1, 21)
-                    hour = random.choice(SLOT_HOURS)
-                    start_at = (now + timedelta(days=day_offset)).replace(hour=hour, minute=0, second=0, microsecond=0)
-                    slots.append(Slot(
-                        host=host,
-                        start_at=start_at,
-                        end_at=start_at + timedelta(hours=1),
-                        status=Slot.STATUS_AVAILABLE,
-                    ))
+                slots.extend(future_slots(host))
             Slot.objects.bulk_create(slots, batch_size=1000)
 
         self.stdout.write(self.style.SUCCESS(

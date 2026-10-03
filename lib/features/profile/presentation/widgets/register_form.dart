@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -20,6 +21,9 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   bool _obscurePassword = true;
+  bool _submitting = false;
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -31,37 +35,54 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
 
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+    });
     if (!_formKey.currentState!.validate()) return;
 
-    await ref.read(authStateProvider.notifier).register(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          displayName: _nameController.text.trim().isNotEmpty
-              ? _nameController.text.trim()
-              : null,
-        );
+    setState(() => _submitting = true);
+    try {
+      // On success the router moves on by itself (it listens to the session).
+      await ref.read(authStateProvider.notifier).register(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            displayName: _nameController.text.trim().isNotEmpty
+                ? _nameController.text.trim()
+                : null,
+          );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final emailError = e.fieldError('email');
+      final passwordError = e.fieldError('password');
+      if (emailError != null || passwordError != null) {
+        // Show the server's reason right under the field it's about.
+        setState(() {
+          _emailError = emailError;
+          _passwordError = passwordError;
+        });
+      } else {
+        _showError(e);
+      }
+    } catch (e) {
+      if (mounted) _showError(e);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
-    if (!mounted) return;
-    ref.read(authStateProvider).whenOrNull(
-      data: (user) {
-        if (user != null) context.go('/');
-      },
-      error: (e, _) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      },
+  void _showError(Object e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.toString()),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 5),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authStateProvider);
-
     return Form(
       key: _formKey,
       child: Column(
@@ -83,10 +104,11 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autocorrect: false,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'E-mail',
               hintText: 'voce@exemplo.com',
-              prefixIcon: Icon(Icons.mail_outline_rounded),
+              prefixIcon: const Icon(Icons.mail_outline_rounded),
+              errorText: _emailError,
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Digite seu e-mail';
@@ -102,7 +124,10 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
             onFieldSubmitted: (_) => _submit(),
             decoration: InputDecoration(
               labelText: 'Senha',
-              helperText: 'Mínimo de 6 caracteres',
+              helperText:
+                  'Mínimo de ${AppConstants.minPasswordLength} caracteres, sem ser só números',
+              errorText: _passwordError,
+              errorMaxLines: 3,
               prefixIcon: const Icon(Icons.lock_outline_rounded),
               suffixIcon: IconButton(
                 icon: Icon(
@@ -116,7 +141,9 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Digite uma senha';
-              if (v.length < 6) return 'Mínimo de 6 caracteres';
+              if (v.length < AppConstants.minPasswordLength) {
+                return 'Mínimo de ${AppConstants.minPasswordLength} caracteres';
+              }
               return null;
             },
           ),
@@ -124,7 +151,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           AppButton(
             label: 'Criar conta',
             glow: true,
-            isLoading: authState.isLoading,
+            isLoading: _submitting,
             onPressed: _submit,
           ),
           const SizedBox(height: AppSpacing.x16),

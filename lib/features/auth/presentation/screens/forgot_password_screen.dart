@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -192,7 +193,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ),
         validator: (v) {
           if (v == null || v.isEmpty) return 'Digite a nova senha';
-          if (v.length < 6) return 'Mínimo de 6 caracteres';
+          if (v.length < AppConstants.minPasswordLength) {
+            return 'Mínimo de ${AppConstants.minPasswordLength} caracteres';
+          }
           return null;
         },
       ),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,56 +24,62 @@ final savedAccountsProvider =
   return ref.read(authRepositoryProvider).getSavedAccounts();
 });
 
+/// The logged-in user, or null when logged out.
+///
+/// Sign-in methods don't put this into a loading state: the forms track their
+/// own progress and get errors thrown back at them. That keeps the router
+/// (which listens to this provider) from bouncing between screens mid-login.
 final authStateProvider =
     AsyncNotifierProvider<AuthNotifier, UserModel?>(AuthNotifier.new);
 
 class AuthNotifier extends AsyncNotifier<UserModel?> {
+  AuthRepository get _repo => ref.read(authRepositoryProvider);
+
   @override
   Future<UserModel?> build() async {
-    final repo = ref.read(authRepositoryProvider);
-    try {
-      return await repo.getCurrentUser();
-    } catch (_) {
-      return null;
-    }
+    ref.read(apiClientProvider).onSessionExpired = _onSessionExpired;
+    return _repo.restoreSession();
   }
 
+  void _onSessionExpired() {
+    if (state.valueOrNull == null) return;
+    _repo.clearTokens();
+    state = const AsyncData(null);
+  }
+
+  /// Tries again after [build] failed (e.g. no connection at startup).
+  void retry() => ref.invalidateSelf();
+
   Future<void> login(String email, String password) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(authRepositoryProvider);
-      return await repo.login(email, password);
-    });
+    state = AsyncData(await _repo.login(email, password));
     ref.invalidate(savedAccountsProvider);
   }
 
   /// One-tap login for an account saved on this device — no password needed.
   Future<void> loginWithSavedAccount(SavedAccount account) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(authRepositoryProvider);
-      return await repo.loginWithSavedAccount(account);
-    });
-    ref.invalidate(savedAccountsProvider);
+    try {
+      state = AsyncData(await _repo.loginWithSavedAccount(account));
+    } finally {
+      ref.invalidate(savedAccountsProvider);
+    }
   }
 
   Future<void> loginWithFacebook() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final result = await FacebookAuth.instance.login(
-        permissions: ['email', 'public_profile'],
-        // Classic tracking gives a Graph API access token our backend can
-        // verify via /debug_token — "limited" tokens are an OIDC JWT instead.
-        loginTracking: LoginTracking.enabled,
+    final result = await FacebookAuth.instance.login(
+      permissions: ['email', 'public_profile'],
+      // Classic tracking gives a Graph API access token our backend can
+      // verify via /debug_token — "limited" tokens are an OIDC JWT instead.
+      loginTracking: LoginTracking.enabled,
+    );
+    if (result.status == LoginStatus.cancelled) return;
+    if (result.status != LoginStatus.success || result.accessToken == null) {
+      throw ApiException(
+        message: result.message ?? 'Falha no login com Facebook.',
       );
-      if (result.status != LoginStatus.success || result.accessToken == null) {
-        throw ApiException(
-          message: result.message ?? 'Falha no login com Facebook',
-        );
-      }
-      final repo = ref.read(authRepositoryProvider);
-      return await repo.loginWithFacebook(result.accessToken!.tokenString);
-    });
+    }
+    state = AsyncData(
+      await _repo.loginWithFacebook(result.accessToken!.tokenString),
+    );
     ref.invalidate(savedAccountsProvider);
   }
 
@@ -79,48 +87,44 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
     required String email,
     required String password,
     String? displayName,
-    String role = 'client',
   }) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final repo = ref.read(authRepositoryProvider);
-      return await repo.register(
+    state = AsyncData(
+      await _repo.register(
         email: email,
         password: password,
         displayName: displayName,
-        role: role,
-      );
-    });
+      ),
+    );
+    ref.invalidate(savedAccountsProvider);
   }
 
   Future<void> logout() async {
-    final repo = ref.read(authRepositoryProvider);
-    await repo.logout();
+    await _repo.logout();
     state = const AsyncData(null);
   }
 
-  void setUser(UserModel? user) {
-    state = AsyncData(user);
+  Future<void> deleteAccount() async {
+    final user = state.valueOrNull;
+    if (user == null) return;
+    await _repo.deleteAccount(user.email);
+    state = const AsyncData(null);
+    ref.invalidate(savedAccountsProvider);
   }
 
-  /// Re-reads the user from the API — call after changing something the rest of
-  /// the app reads off [UserModel], such as the gym.
+  Future<void> updateProfile(Map<String, dynamic> fields) async {
+    state = AsyncData(await _repo.updateProfile(fields));
+  }
+
+  Future<void> uploadAvatar(File file) async {
+    state = AsyncData(await _repo.uploadAvatar(file));
+  }
+
+  /// Re-reads the user from the API — call after changing something the rest
+  /// of the app reads off [UserModel], such as the gym. Keeps the current
+  /// user if the request fails.
   Future<void> refresh() async {
-    final repo = ref.read(authRepositoryProvider);
-    state = await AsyncValue.guard(() => repo.getCurrentUser());
-  }
-
-  /// Demo login without backend - for MVP testing.
-  Future<void> demoLogin() async {
-    state = const AsyncLoading();
-    await Future.delayed(const Duration(milliseconds: 500));
-    state = AsyncData(
-      UserModel(
-        id: 'demo-1',
-        email: 'demo@socialmeeting.app',
-        displayName: 'Demo User',
-        role: UserRole.client,
-      ),
-    );
+    try {
+      state = AsyncData(await _repo.fetchMe());
+    } catch (_) {}
   }
 }

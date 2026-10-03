@@ -3,33 +3,28 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 
-/// Sticky payment bar for the booking flow.
-///
-/// Fintech-grade: a clear total, a trust line ("held securely…"), and a single
-/// confident CTA. No debug/MVP copy — this is the screen investors see.
+/// Sticky total + confirm bar for the booking flow.
 class PaymentSection extends StatelessWidget {
   const PaymentSection({
     super.key,
     required this.amount,
     required this.onPayPressed,
-    this.currency = 'USD',
+    this.currency = 'BRL',
     this.isLoading = false,
+    this.charges = true,
   });
 
   final double amount;
   final String currency;
-  final VoidCallback onPayPressed;
+  final VoidCallback? onPayPressed;
   final bool isLoading;
 
-  String get _symbol => switch (currency.toUpperCase()) {
-        'USD' => '\$',
-        'BRL' => 'R\$',
-        'EUR' => '€',
-        'GBP' => '£',
-        _ => '$currency ',
-      };
+  /// Whether confirming opens the card payment (false in test mode or for
+  /// free sessions).
+  final bool charges;
 
   @override
   Widget build(BuildContext context) {
@@ -52,20 +47,22 @@ class PaymentSection extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.lock_rounded,
-                      size: 14, color: AppColors.success),
-                  const SizedBox(width: AppSpacing.x6),
-                  Expanded(
-                    child: Text(
-                      'Retido com segurança — liberado só após o encontro ser confirmado.',
-                      style: t.bodySmall?.copyWith(color: AppColors.ink500),
+              if (charges) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.lock_rounded,
+                        size: 14, color: AppColors.success),
+                    const SizedBox(width: AppSpacing.x6),
+                    Expanded(
+                      child: Text(
+                        'Pagamento com cartão processado pelo Stripe.',
+                        style: t.bodySmall?.copyWith(color: AppColors.ink500),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.x12),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.x12),
+              ],
               Row(
                 children: [
                   Column(
@@ -73,17 +70,14 @@ class PaymentSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Total', style: t.bodySmall),
-                      Text(
-                        '$_symbol${amount.toStringAsFixed(2)}',
-                        style: t.titleLarge,
-                      ),
+                      Text(formatMoney(amount, currency), style: t.titleLarge),
                     ],
                   ),
                   const SizedBox(width: AppSpacing.x16),
                   Expanded(
                     child: AppButton(
-                      label: 'Confirmar e pagar',
-                      icon: Icons.lock_rounded,
+                      label: charges ? 'Confirmar e pagar' : 'Confirmar reserva',
+                      icon: charges ? Icons.lock_rounded : Icons.check_rounded,
                       glow: true,
                       isLoading: isLoading,
                       onPressed: onPayPressed,

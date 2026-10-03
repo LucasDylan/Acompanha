@@ -71,7 +71,7 @@ class LoginScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.x8),
                   Text(
-                    'Entre para marcar seu próximo encontro.',
+                    'Entre para marcar encontros e achar parceiros de treino.',
                     style: t.bodyLarge?.copyWith(color: AppColors.ink500),
                   ),
                   const SizedBox(height: AppSpacing.x32),
@@ -143,7 +143,7 @@ class _BrandMark extends StatelessWidget {
                   ),
             ),
             Text(
-              'Marque encontros com anfitriões',
+              'Encontros e parceiros de treino',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.ink500,
                   ),

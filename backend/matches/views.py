@@ -16,7 +16,7 @@ class SendMatchRequestView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         receiver_id = request.data.get('receiver_id')
         if str(receiver_id) == str(request.user.id):
-            return Response({'detail': 'Cannot send request to yourself.'}, status=400)
+            return Response({'detail': 'Você não pode enviar um pedido para si mesmo.'}, status=400)
         # Check if reverse request already exists and is pending → auto-accept
         reverse = MatchRequest.objects.filter(
             sender_id=receiver_id,
@@ -49,8 +49,9 @@ class IncomingRequestsView(generics.ListAPIView):
     def get_queryset(self):
         return MatchRequest.objects.filter(
             receiver=self.request.user,
+            sender__is_active=True,
             status=MatchRequest.STATUS_PENDING,
-        )
+        ).select_related('sender', 'receiver')
 
 
 class MyMatchesView(generics.ListAPIView):
@@ -62,7 +63,9 @@ class MyMatchesView(generics.ListAPIView):
         return MatchRequest.objects.filter(
             Q(sender=self.request.user) | Q(receiver=self.request.user),
             status=MatchRequest.STATUS_ACCEPTED,
-        )
+            sender__is_active=True,
+            receiver__is_active=True,
+        ).select_related('sender', 'receiver')
 
 
 @api_view(['POST'])
@@ -72,13 +75,13 @@ def respond_to_request(request, pk):
     try:
         match_req = MatchRequest.objects.get(pk=pk, receiver=request.user, status=MatchRequest.STATUS_PENDING)
     except MatchRequest.DoesNotExist:
-        return Response({'detail': 'Request not found.'}, status=404)
+        return Response({'detail': 'Pedido não encontrado.'}, status=404)
     action = request.data.get('action')
     if action == 'accept':
         match_req.status = MatchRequest.STATUS_ACCEPTED
     elif action == 'decline':
         match_req.status = MatchRequest.STATUS_DECLINED
     else:
-        return Response({'detail': 'action must be "accept" or "decline".'}, status=400)
+        return Response({'detail': 'action deve ser "accept" ou "decline".'}, status=400)
     match_req.save()
     return Response(MatchRequestSerializer(match_req, context={'request': request}).data)

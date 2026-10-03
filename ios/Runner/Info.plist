@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Projeto Apollo</string>
+	<string>Acompanha</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,9 +46,13 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Your location is used to find hosts near you and show how far away they are.</string>
+	<string>Sua localização é usada para mostrar anfitriões perto de você e a distância até eles.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID to quickly and securely sign back into your saved account.</string>
+	<string>Use o Face ID para entrar de novo na sua conta salva com segurança.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Escolha fotos para o seu perfil e para o seu anúncio de anfitrião.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Tire uma foto para o seu perfil.</string>
 	<!-- Facebook Login: replace with the values from your app at
 	     https://developers.facebook.com/apps -->
 	<key>FacebookAppID</key>

@@ -3,76 +3,70 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../app/routes/app_router.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/constants/category_meta.dart';
 import '../../../../core/geo/city_coordinates.dart';
 import '../../../../core/models/host_profile_model.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/price_tag.dart';
-import '../../../discovery/providers/discovery_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../../profile/providers/profile_provider.dart';
+import '../../data/booking_repository.dart';
+import '../../providers/booking_provider.dart';
 import '../widgets/slot_picker.dart';
 
 class HostDetailScreen extends ConsumerWidget {
-  const HostDetailScreen({super.key, required this.hostId});
+  const HostDetailScreen({super.key, required this.hostId, this.initial});
 
   final String hostId;
 
-  static const name = 'host_detail';
-
-  /// Resolve a host from the discovery list first (covers mock + cached),
-  /// falling back to a direct profile fetch.
-  AsyncValue<HostProfileModel> _resolve(WidgetRef ref) {
-    final listAsync = ref.watch(discoveryHostsProvider);
-    final list = listAsync.valueOrNull;
-    if (list != null) {
-      for (final h in list) {
-        if (h.id == hostId) return AsyncData(h);
-      }
-    }
-    if (listAsync.isLoading) return const AsyncLoading();
-    return ref.watch(hostProfileProvider(hostId));
-  }
+  /// The listing as shown on the card that was tapped, so the page renders
+  /// immediately while the fresh copy loads.
+  final HostProfileModel? initial;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hostAsync = _resolve(ref);
+    final hostAsync = ref.watch(hostProfileProvider(hostId));
+    final host = hostAsync.valueOrNull ?? initial;
 
-    return hostAsync.when(
-      loading: () => const Scaffold(body: AppLoading()),
-      error: (e, _) => Scaffold(
+    if (host != null) return _HostDetailView(host: host);
+    if (hostAsync.hasError) {
+      return Scaffold(
         appBar: AppBar(),
         body: EmptyState(
           icon: Icons.person_off_rounded,
           title: 'Perfil indisponível',
-          message: 'Não foi possível carregar este perfil.',
+          message: hostAsync.error.toString(),
           tone: EmptyStateTone.error,
           actionLabel: 'Voltar',
           onAction: () => context.pop(),
         ),
-      ),
-      data: (host) => _HostDetailView(host: host),
-    );
+      );
+    }
+    return const Scaffold(body: AppLoading());
   }
 }
 
-class _HostDetailView extends StatefulWidget {
+class _HostDetailView extends ConsumerStatefulWidget {
   const _HostDetailView({required this.host});
 
   final HostProfileModel host;
 
   @override
-  State<_HostDetailView> createState() => _HostDetailViewState();
+  ConsumerState<_HostDetailView> createState() => _HostDetailViewState();
 }
 
-class _HostDetailViewState extends State<_HostDetailView> {
-  late String? _heroImage;
+class _HostDetailViewState extends ConsumerState<_HostDetailView> {
+  String? _heroImage;
 
   HostProfileModel get host => widget.host;
 
@@ -86,12 +80,6 @@ class _HostDetailViewState extends State<_HostDetailView> {
     return out;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _heroImage = _images.isNotEmpty ? _images.first : null;
-  }
-
   void _openSlotSheet() {
     showModalBottomSheet(
       context: context,
@@ -103,28 +91,21 @@ class _HostDetailViewState extends State<_HostDetailView> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final isTopRated = (host.rating ?? 0) >= 4.8;
+    final images = _images;
+    final hero = _heroImage ?? (images.isNotEmpty ? images.first : null);
+    final myId = ref.watch(authStateProvider).valueOrNull?.id;
+    final isMine = myId != null && myId == host.userId;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
         scrolledUnderElevation: 0.5,
-        titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          'Social Meeting',
-          style: t.titleLarge?.copyWith(color: AppColors.brand600),
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.ios_share_rounded), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: () {}),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -134,23 +115,38 @@ class _HostDetailViewState extends State<_HostDetailView> {
           AppSpacing.x32,
         ),
         children: [
-          _HeroPhoto(image: _heroImage, host: host),
-          if (_images.length > 1) ...[
+          _HeroPhoto(image: hero, host: host),
+          if (images.length > 1) ...[
             const SizedBox(height: AppSpacing.x12),
             _ThumbnailStrip(
-              images: _images,
-              selected: _heroImage,
+              images: images,
+              selected: hero,
               onSelect: (img) => setState(() => _heroImage = img),
             ),
           ],
           const SizedBox(height: AppSpacing.x20),
-          _NameRow(host: host, isTopRated: isTopRated),
+          Text(
+            host.name,
+            style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: AppSpacing.x8),
           _RatingRow(host: host),
+          if (host.location != null) ...[
+            const SizedBox(height: AppSpacing.x4),
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined,
+                    size: 16, color: AppColors.ink500),
+                const SizedBox(width: AppSpacing.x4),
+                Text(host.location!,
+                    style: t.bodyMedium?.copyWith(color: AppColors.ink600)),
+              ],
+            ),
+          ],
 
           if (host.bio != null) ...[
             const SizedBox(height: AppSpacing.x24),
-            _SectionTitle('Sobre mim'),
+            const _SectionTitle('Sobre'),
             const SizedBox(height: AppSpacing.x12),
             AppCard(
               color: AppColors.ink50,
@@ -162,32 +158,63 @@ class _HostDetailViewState extends State<_HostDetailView> {
 
           if (host.categories.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.x24),
-            _SectionTitle('Categorias de encontro'),
+            const _SectionTitle('O que oferece'),
             const SizedBox(height: AppSpacing.x12),
             _CategoryGrid(categories: host.categories),
           ],
 
           if (host.pricePerHour != null) ...[
             const SizedBox(height: AppSpacing.x24),
-            _SectionTitle('Preço e disponibilidade'),
+            const _SectionTitle('Valor'),
             const SizedBox(height: AppSpacing.x12),
-            _PriceList(host: host),
+            AppCard(
+              child: Row(
+                children: [
+                  const Icon(Icons.schedule_rounded,
+                      size: 20, color: AppColors.ink500),
+                  const SizedBox(width: AppSpacing.x12),
+                  Expanded(child: Text('Por hora', style: t.bodyLarge)),
+                  PriceTag(amount: host.pricePerHour!, currency: host.currency),
+                ],
+              ),
+            ),
           ],
 
           const SizedBox(height: AppSpacing.x24),
-          _SectionTitle('Segurança e confiança'),
+          const _SectionTitle('Como funciona'),
           const SizedBox(height: AppSpacing.x12),
-          const _SafetyCard(),
+          const _HowItWorksCard(),
 
-          if (host.location != null) ...[
+          const SizedBox(height: AppSpacing.x24),
+          _ReviewsSection(host: host),
+
+          if (host.location != null &&
+              CityCoordinates.lookup(host.location) != null) ...[
             const SizedBox(height: AppSpacing.x24),
-            _SectionTitle('Área preferida de encontro'),
+            const _SectionTitle('Região'),
             const SizedBox(height: AppSpacing.x12),
             _MeetupMap(location: host.location!),
           ],
         ],
       ),
-      bottomNavigationBar: _ProposalBar(host: host, onSend: _openSlotSheet),
+      bottomNavigationBar: isMine
+          ? _BottomBar(
+              child: AppButton.secondary(
+                label: 'Este é o seu perfil · editar',
+                icon: Icons.edit_rounded,
+                onPressed: () => context.push('/host-profile/edit'),
+              ),
+            )
+          : _BottomBar(
+              child: AppButton(
+                label: host.pricePerHour == null
+                    ? 'Ver horários'
+                    : 'Ver horários · ${host.priceLabel}',
+                icon: Icons.event_available_rounded,
+                glow: true,
+                onPressed: _openSlotSheet,
+              ),
+            ),
     );
   }
 }
@@ -226,46 +253,38 @@ class _HeroPhoto extends StatelessWidget {
               AppNetworkImage(
                 url: image,
                 seed: host.displayName ?? host.id,
-                initial: (host.displayName?.isNotEmpty ?? false)
-                    ? host.displayName![0]
-                    : null,
+                initial: host.name[0],
               ),
-              // "Online agora" badge.
-              Positioned(
-                left: AppSpacing.x12,
-                bottom: AppSpacing.x12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x12,
-                    vertical: AppSpacing.x6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: AppRadius.brPill,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.success,
-                          shape: BoxShape.circle,
+              if (host.isTrainer)
+                Positioned(
+                  left: AppSpacing.x12,
+                  bottom: AppSpacing.x12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.x12,
+                      vertical: AppSpacing.x6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: AppRadius.brPill,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_rounded,
+                            size: 14, color: Colors.white),
+                        const SizedBox(width: AppSpacing.x6),
+                        Text(
+                          'Personal trainer',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(color: Colors.white),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.x6),
-                      Text(
-                        'Online agora',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelMedium
-                            ?.copyWith(color: Colors.white),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -319,55 +338,6 @@ class _ThumbnailStrip extends StatelessWidget {
   }
 }
 
-class _NameRow extends StatelessWidget {
-  const _NameRow({required this.host, required this.isTopRated});
-
-  final HostProfileModel host;
-  final bool isTopRated;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            host.displayName ?? 'Anfitrião',
-            style: t.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ),
-        if (isTopRated) ...[
-          const SizedBox(width: AppSpacing.x8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'MELHOR AVALIADO',
-                style: t.labelSmall?.copyWith(
-                  color: AppColors.ink500,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.x4),
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppColors.successBg,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.workspace_premium_rounded,
-                    size: 18, color: AppColors.success),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 class _RatingRow extends StatelessWidget {
   const _RatingRow({required this.host});
 
@@ -376,28 +346,22 @@ class _RatingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final parts = <Widget>[];
-
-    if (host.rating != null) {
-      parts.addAll([
+    if (host.rating == null || host.reviewCount == 0) {
+      return Text('Novo por aqui · ainda sem avaliações',
+          style: t.bodyMedium?.copyWith(color: AppColors.ink600));
+    }
+    return Row(
+      children: [
         const Icon(Icons.star_rounded, size: 18, color: AppColors.rating),
         const SizedBox(width: AppSpacing.x4),
         Text(host.rating!.toStringAsFixed(1), style: t.titleSmall),
-      ]);
-    }
-    if (host.reviewCount > 0) {
-      if (parts.isNotEmpty) {
-        parts.add(Text('  •  ',
-            style: t.bodyMedium?.copyWith(color: AppColors.ink400)));
-      }
-      parts.add(Text('${host.reviewCount} encontros realizados',
-          style: t.bodyMedium?.copyWith(color: AppColors.ink600)));
-    } else if (parts.isEmpty) {
-      parts.add(Text('Novo por aqui',
-          style: t.bodyMedium?.copyWith(color: AppColors.ink600)));
-    }
-
-    return Row(children: parts);
+        Text('  •  ', style: t.bodyMedium?.copyWith(color: AppColors.ink400)),
+        Text(
+          host.reviewCount == 1 ? '1 avaliação' : '${host.reviewCount} avaliações',
+          style: t.bodyMedium?.copyWith(color: AppColors.ink600),
+        ),
+      ],
+    );
   }
 }
 
@@ -408,51 +372,24 @@ class _CategoryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final width =
+        (MediaQuery.of(context).size.width - AppSpacing.x20 * 2 - AppSpacing.x12) /
+            2;
+    return Wrap(
+      spacing: AppSpacing.x12,
+      runSpacing: AppSpacing.x12,
       children: [
-        // Two-per-row category tiles.
-        Wrap(
-          spacing: AppSpacing.x12,
-          runSpacing: AppSpacing.x12,
-          children: [
-            for (final c in categories)
-              SizedBox(
-                width: (MediaQuery.of(context).size.width -
-                        AppSpacing.x20 * 2 -
-                        AppSpacing.x12) /
-                    2,
-                child: _CategoryTile(label: c),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.x12),
-        // Decorative "exclusive events" row.
-        AppCard(
-          border: true,
-          shadow: false,
-          onTap: () {},
-          child: Row(
-            children: [
-              const Icon(Icons.event_available_rounded,
-                  color: AppColors.brand600),
-              const SizedBox(width: AppSpacing.x12),
-              Expanded(
-                child: Text('Eventos exclusivos',
-                    style: Theme.of(context).textTheme.titleSmall),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.ink400),
-            ],
-          ),
-        ),
+        for (final slug in categories)
+          SizedBox(width: width, child: _CategoryTile(slug: slug)),
       ],
     );
   }
 }
 
 class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.label});
+  const _CategoryTile({required this.slug});
 
-  final String label;
+  final String slug;
 
   @override
   Widget build(BuildContext context) {
@@ -463,24 +400,25 @@ class _CategoryTile extends StatelessWidget {
         borderRadius: AppRadius.brLg,
         border: Border.all(color: AppColors.ink200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             decoration: const BoxDecoration(
               color: AppColors.brand50,
               shape: BoxShape.circle,
             ),
-            child: Icon(categoryIcon(label), color: AppColors.brand600, size: 22),
+            child: Icon(categoryIcon(slug), color: AppColors.brand600, size: 20),
           ),
-          const SizedBox(height: AppSpacing.x12),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall,
+          const SizedBox(width: AppSpacing.x12),
+          Expanded(
+            child: Text(
+              categoryLabel(slug),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
           ),
         ],
       ),
@@ -488,158 +426,117 @@ class _CategoryTile extends StatelessWidget {
   }
 }
 
-class _PriceList extends StatelessWidget {
-  const _PriceList({required this.host});
+/// What the platform actually guarantees — no claims it doesn't back up.
+class _HowItWorksCard extends StatelessWidget {
+  const _HowItWorksCard();
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (
+        Icons.event_available_rounded,
+        'Escolha um horário livre e confirme a reserva.',
+      ),
+      (
+        Icons.lock_rounded,
+        'O pagamento é feito no app, com cartão, de forma segura.',
+      ),
+      (
+        Icons.chat_bubble_outline_rounded,
+        'Depois de reservar, combine os detalhes pelo chat.',
+      ),
+      (
+        Icons.undo_rounded,
+        'Cancelamento com reembolso até ${AppConstants.freeCancellationHours}h antes.',
+      ),
+    ];
+    final t = Theme.of(context).textTheme;
+    return AppCard(
+      border: true,
+      shadow: false,
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppSpacing.x12),
+            Row(
+              children: [
+                Icon(items[i].$1, size: 20, color: AppColors.brand600),
+                const SizedBox(width: AppSpacing.x12),
+                Expanded(child: Text(items[i].$2, style: t.bodyMedium)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewsSection extends ConsumerWidget {
+  const _ReviewsSection({required this.host});
 
   final HostProfileModel host;
 
   @override
-  Widget build(BuildContext context) {
-    final base = host.pricePerHour!;
-    final rows = host.categories.isEmpty
-        ? <String>['Encontro · 1h']
-        : host.categories.take(3).map((c) => '$c · 1h').toList();
-
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviews = ref.watch(hostReviewsProvider(host.id)).valueOrNull;
+    if (reviews == null || reviews.isEmpty) return const SizedBox.shrink();
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                if (i > 0) const Divider(height: 1, indent: AppSpacing.x16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.x16,
-                    vertical: AppSpacing.x16,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.schedule_rounded,
-                          size: 20, color: AppColors.ink500),
-                      const SizedBox(width: AppSpacing.x12),
-                      Expanded(
-                        child: Text(rows[i],
-                            style: Theme.of(context).textTheme.bodyLarge),
-                      ),
-                      PriceTag(amount: base, currency: host.currency),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.x8),
-        Row(
-          children: [
-            const Icon(Icons.info_outline_rounded,
-                size: 14, color: AppColors.ink400),
-            const SizedBox(width: AppSpacing.x6),
-            Expanded(
-              child: Text(
-                'Os valores já incluem a taxa de proteção da Social Meeting.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: AppColors.ink500),
-              ),
-            ),
-          ],
-        ),
+        const _SectionTitle('Avaliações'),
+        const SizedBox(height: AppSpacing.x12),
+        for (final r in reviews.take(5)) ...[
+          _ReviewTile(review: r),
+          const SizedBox(height: AppSpacing.x8),
+        ],
       ],
     );
   }
 }
 
-class _SafetyCard extends StatelessWidget {
-  const _SafetyCard();
+class _ReviewTile extends StatelessWidget {
+  const _ReviewTile({required this.review});
+
+  final HostReview review;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.x20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: AppRadius.brLg,
-        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
-      ),
+    final t = Theme.of(context).textTheme;
+    return AppCard(
+      border: true,
+      shadow: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.verified_user_rounded,
-                  color: AppColors.success, size: 20),
+              for (var i = 1; i <= 5; i++)
+                Icon(
+                  i <= review.rating ? Icons.star_rounded : Icons.star_border_rounded,
+                  size: 16,
+                  color: AppColors.rating,
+                ),
               const SizedBox(width: AppSpacing.x8),
-              Text('Segurança e confiança',
-                  style: Theme.of(context).textTheme.titleSmall),
+              Expanded(
+                child: Text(review.author,
+                    style: t.labelLarge, overflow: TextOverflow.ellipsis),
+              ),
+              Text(formatDayMonth(review.createdAt), style: t.bodySmall),
             ],
           ),
-          const SizedBox(height: AppSpacing.x16),
-          const Row(
-            children: [
-              Expanded(
-                child: _TrustBadge(
-                  icon: Icons.badge_rounded,
-                  label: 'Documento\nverificado',
-                ),
-              ),
-              Expanded(
-                child: _TrustBadge(
-                  icon: Icons.face_rounded,
-                  label: 'Selfie\nverificada',
-                ),
-              ),
-              Expanded(
-                child: _TrustBadge(
-                  icon: Icons.fact_check_rounded,
-                  label: 'Antecedentes\nchecados',
-                ),
-              ),
-            ],
-          ),
+          if (review.comment != null) ...[
+            const SizedBox(height: AppSpacing.x8),
+            Text(review.comment!, style: t.bodyMedium),
+          ],
         ],
       ),
     );
   }
 }
 
-class _TrustBadge extends StatelessWidget {
-  const _TrustBadge({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            color: AppColors.successBg,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: AppColors.success, size: 22),
-        ),
-        const SizedBox(height: AppSpacing.x8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: AppColors.ink600),
-        ),
-      ],
-    );
-  }
-}
-
-/// Real Google Map centered on the host's city (coordinates resolved locally
-/// from the city name via [CityCoordinates] — no backend lat/lng needed).
+/// Google Map centered on the host's city (coordinates resolved locally from
+/// the city name via [CityCoordinates] — no backend lat/lng needed).
 class _MeetupMap extends StatelessWidget {
   const _MeetupMap({required this.location});
 
@@ -647,60 +544,29 @@ class _MeetupMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coord = CityCoordinates.lookup(location);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: AppRadius.brLg,
-          child: SizedBox(
-            height: 170,
-            child: coord == null
-                ? Container(
-                    color: AppColors.ink100,
-                    child: const Center(
-                      child: Icon(Icons.map_rounded,
-                          size: 36, color: AppColors.ink400),
-                    ),
-                  )
-                : GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(coord.lat, coord.lng),
-                      zoom: 12,
-                    ),
-                    liteModeEnabled: true,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('host'),
-                        position: LatLng(coord.lat, coord.lng),
-                      ),
-                    },
-                  ),
+    final coord = CityCoordinates.lookup(location)!;
+    return ClipRRect(
+      borderRadius: AppRadius.brLg,
+      child: SizedBox(
+        height: 170,
+        child: GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: LatLng(coord.lat, coord.lng),
+            zoom: 11,
           ),
+          liteModeEnabled: true,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
         ),
-        const SizedBox(height: AppSpacing.x12),
-        Row(
-          children: [
-            const Icon(Icons.location_on_rounded,
-                size: 18, color: AppColors.brand600),
-            const SizedBox(width: AppSpacing.x6),
-            Text(location, style: Theme.of(context).textTheme.titleSmall),
-          ],
-        ),
-      ],
+      ),
     );
   }
 }
 
-/// Sticky bottom bar with the primary "send proposal" CTA.
-class _ProposalBar extends StatelessWidget {
-  const _ProposalBar({required this.host, required this.onSend});
+class _BottomBar extends StatelessWidget {
+  const _BottomBar({required this.child});
 
-  final HostProfileModel host;
-  final VoidCallback onSend;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -718,19 +584,14 @@ class _ProposalBar extends StatelessWidget {
             AppSpacing.x20,
             AppSpacing.x12,
           ),
-          child: AppButton(
-            label: 'Enviar proposta',
-            icon: Icons.send_rounded,
-            glow: true,
-            onPressed: onSend,
-          ),
+          child: child,
         ),
       ),
     );
   }
 }
 
-/// Bottom sheet that presents availability when the user taps the CTA.
+/// Bottom sheet listing the host's open times.
 class _SlotSheet extends StatelessWidget {
   const _SlotSheet({required this.host});
 
@@ -738,34 +599,38 @@ class _SlotSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.x20,
-        AppSpacing.x8,
-        AppSpacing.x20,
-        AppSpacing.x24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Escolha um horário',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: AppSpacing.x4),
-          Text(
-            'com ${host.displayName ?? 'o anfitrião'}',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.x20),
-          SlotPicker(
-            hostId: host.id,
-            host: host,
-            onSlotSelected: (slot) {
-              Navigator.of(context).pop();
-              context.push('/host/${host.id}/booking', extra: slot);
-            },
-          ),
-        ],
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x20,
+          AppSpacing.x20,
+          AppSpacing.x20,
+          AppSpacing.x24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Escolha um horário',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: AppSpacing.x4),
+            Text(
+              'com ${host.name}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: AppSpacing.x20),
+            SlotPicker(
+              host: host,
+              onSlotSelected: (slot) {
+                Navigator.of(context).pop();
+                context.push(
+                  '/host/${host.id}/booking',
+                  extra: BookingDraft(host: host, slot: slot),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

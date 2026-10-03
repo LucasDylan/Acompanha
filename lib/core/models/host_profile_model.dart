@@ -1,4 +1,6 @@
+import '../utils/formatters.dart';
 
+/// A host's public listing in Discovery.
 class HostProfileModel {
   const HostProfileModel({
     required this.id,
@@ -9,54 +11,40 @@ class HostProfileModel {
     this.photos = const [],
     this.categories = const [],
     this.pricePerHour,
-    this.currency = 'USD',
+    this.currency = 'BRL',
     this.rating,
     this.reviewCount = 0,
     this.location,
-    this.fitnessLevel,
+    this.isTrainer = false,
+    this.isActive = true,
   });
 
   factory HostProfileModel.fromJson(Map<String, dynamic> json) {
     return HostProfileModel(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
+      id: json['id'].toString(),
+      userId: json['user_id'].toString(),
       displayName: json['display_name'] as String?,
-      bio: json['bio'] as String?,
+      bio: (json['bio'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : json['bio'] as String,
       avatarUrl: json['avatar_url'] as String?,
       photos: (json['photos'] as List<dynamic>?)
               ?.map((e) => e as String)
               .toList() ??
           [],
-      categories:
-          (json['categories'] as List<dynamic>?)?.map((e) => e as String).toList() ??
-              [],
-      pricePerHour: (json['price_per_hour'] as num?)?.toDouble(),
-      currency: json['currency'] as String? ?? 'USD',
-      rating: (json['rating'] as num?)?.toDouble(),
-      reviewCount: json['review_count'] as int? ?? 0,
-      location: json['location'] as String?,
-      fitnessLevel: json['fitness_level'] as String?,
-    );
-  }
-
-  /// A gym member from `GET /gym-members/` (a plain User, not a paid host
-  /// listing) rendered through the same card as hosts. Workout types stand in
-  /// for categories and the gym name for the location line.
-  factory HostProfileModel.fromGymMember(Map<String, dynamic> json) {
-    final id = json['id'].toString();
-    final gym = json['gym'] as Map<String, dynamic>?;
-    return HostProfileModel(
-      id: id,
-      userId: id,
-      displayName: json['display_name'] as String?,
-      bio: json['bio'] as String?,
-      avatarUrl: json['avatar_url'] as String?,
-      categories: (json['workout_types'] as List<dynamic>?)
-              ?.map((e) => e.toString())
+      categories: (json['categories'] as List<dynamic>?)
+              ?.map((e) => e as String)
               .toList() ??
           [],
-      location: gym?['name'] as String?,
-      fitnessLevel: json['fitness_level'] as String?,
+      pricePerHour: (json['price_per_hour'] as num?)?.toDouble(),
+      currency: json['currency'] as String? ?? 'BRL',
+      rating: (json['rating'] as num?)?.toDouble(),
+      reviewCount: json['review_count'] as int? ?? 0,
+      location: (json['location'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : json['location'] as String,
+      isTrainer: json['is_trainer'] as bool? ?? false,
+      isActive: json['is_active'] as bool? ?? true,
     );
   }
 
@@ -66,16 +54,23 @@ class HostProfileModel {
   final String? bio;
   final String? avatarUrl;
   final List<String> photos;
+
+  /// Category slugs — see `category_meta.dart` for labels.
   final List<String> categories;
   final double? pricePerHour;
   final String currency;
   final double? rating;
   final int reviewCount;
   final String? location;
-  final String? fitnessLevel;
 
-  String get priceLabel {
-    if (pricePerHour == null) return '';
-    return '$currency ${pricePerHour!.toStringAsFixed(0)}/hr';
-  }
+  /// Professional personal trainer with an active Pro plan.
+  final bool isTrainer;
+  final bool isActive;
+
+  String get name =>
+      (displayName?.trim().isNotEmpty ?? false) ? displayName! : 'Anfitrião';
+
+  String get priceLabel => pricePerHour == null
+      ? ''
+      : '${formatMoney(pricePerHour!, currency, compact: true)}/h';
 }

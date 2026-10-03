@@ -1,0 +1,392 @@
+{
+  "count": 502,
+  "next": "http://testserver/api/v1/profiles/hosts/?page=2",
+  "previous": null,
+  "results": [
+    {
+      "id": "194",
+      "user_id": "195",
+      "display_name": "Diego Ribeiro",
+      "bio": "Especialista em mentoria de carreira — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "mentorship",
+        "networking"
+      ],
+      "price_per_hour": 40.0,
+      "currency": "BRL",
+      "rating": 5.0,
+      "review_count": 280,
+      "location": "Goiânia, GO",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "201",
+      "user_id": "202",
+      "display_name": "Samuel Cardoso",
+      "bio": "Adoro trocar ideia sobre networking num café tranquilo.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "networking",
+        "mentorship"
+      ],
+      "price_per_hour": 120.0,
+      "currency": "BRL",
+      "rating": 5.0,
+      "review_count": 253,
+      "location": "Rio de Janeiro, RJ",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "276",
+      "user_id": "277",
+      "display_name": "Rafaela Carvalho",
+      "bio": "Anos de experiência ajudando gente com prática de idiomas. Bora marcar?",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "language",
+        "travel",
+        "coffee"
+      ],
+      "price_per_hour": 120.0,
+      "currency": "BRL",
+      "rating": 5.0,
+      "review_count": 71,
+      "location": "Goiânia, GO",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "46",
+      "user_id": "47",
+      "display_name": "Yasmin Ribeiro",
+      "bio": "Disponível pra sessões de café e boa conversa, presencial ou remoto.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee",
+        "language"
+      ],
+      "price_per_hour": 200.0,
+      "currency": "BRL",
+      "rating": 5.0,
+      "review_count": 67,
+      "location": "Belo Horizonte, MG",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "138",
+      "user_id": "139",
+      "display_name": "Ana Ferreira",
+      "bio": "Adoro trocar ideia sobre mentoria de carreira num café tranquilo.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "mentorship",
+        "travel"
+      ],
+      "price_per_hour": 250.0,
+      "currency": "BRL",
+      "rating": 4.99,
+      "review_count": 286,
+      "location": "Goiânia, GO",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "142",
+      "user_id": "143",
+      "display_name": "Lucas Carvalho",
+      "bio": "Especialista em café e boa conversa — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee"
+      ],
+      "price_per_hour": 90.0,
+      "currency": "BRL",
+      "rating": 4.99,
+      "review_count": 265,
+      "location": "Salvador, BA",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "70",
+      "user_id": "71",
+      "display_name": "Pedro Souza",
+      "bio": "Anos de experiência ajudando gente com café e boa conversa. Bora marcar?",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee"
+      ],
+      "price_per_hour": 250.0,
+      "currency": "BRL",
+      "rating": 4.99,
+      "review_count": 204,
+      "location": "Goiânia, GO",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "261",
+      "user_id": "262",
+      "display_name": "Diego Lima",
+      "bio": "Especialista em mentoria de carreira — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "mentorship",
+        "networking"
+      ],
+      "price_per_hour": 120.0,
+      "currency": "BRL",
+      "rating": 4.99,
+      "review_count": 54,
+      "location": "Campinas, SP",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "180",
+      "user_id": "181",
+      "display_name": "Pedro Martins",
+      "bio": "Especialista em networking — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "networking",
+        "travel"
+      ],
+      "price_per_hour": 70.0,
+      "currency": "BRL",
+      "rating": 4.99,
+      "review_count": 27,
+      "location": "Campinas, SP",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "208",
+      "user_id": "209",
+      "display_name": "André Nascimento",
+      "bio": "Adoro trocar ideia sobre café e boa conversa num café tranquilo.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee",
+        "mentorship",
+        "language"
+      ],
+      "price_per_hour": 250.0,
+      "currency": "BRL",
+      "rating": 4.98,
+      "review_count": 292,
+      "location": "Rio de Janeiro, RJ",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "195",
+      "user_id": "196",
+      "display_name": "André Ferreira",
+      "bio": "Disponível pra sessões de prática de idiomas, presencial ou remoto.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "language",
+        "mentorship",
+        "coffee"
+      ],
+      "price_per_hour": 100.0,
+      "currency": "BRL",
+      "rating": 4.98,
+      "review_count": 146,
+      "location": "Campinas, SP",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "268",
+      "user_id": "269",
+      "display_name": "Samuel Rodrigues",
+      "bio": "Especialista em café e boa conversa — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee",
+        "networking"
+      ],
+      "price_per_hour": 150.0,
+      "currency": "BRL",
+      "rating": 4.98,
+      "review_count": 82,
+      "location": "Fortaleza, CE",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "347",
+      "user_id": "348",
+      "display_name": "André Teixeira",
+      "bio": "Adoro trocar ideia sobre networking num café tranquilo.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "networking",
+        "language",
+        "travel"
+      ],
+      "price_per_hour": 40.0,
+      "currency": "BRL",
+      "rating": 4.97,
+      "review_count": 244,
+      "location": "Fortaleza, CE",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "357",
+      "user_id": "358",
+      "display_name": "Carla Araújo",
+      "bio": "Especialista em mentoria de carreira — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "mentorship",
+        "travel",
+        "networking"
+      ],
+      "price_per_hour": 80.0,
+      "currency": "BRL",
+      "rating": 4.96,
+      "review_count": 140,
+      "location": "Rio de Janeiro, RJ",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "24",
+      "user_id": "25",
+      "display_name": "Diego Ribeiro",
+      "bio": "Especialista em café e boa conversa — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee",
+        "networking",
+        "language"
+      ],
+      "price_per_hour": 200.0,
+      "currency": "BRL",
+      "rating": 4.96,
+      "review_count": 104,
+      "location": "Curitiba, PR",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "203",
+      "user_id": "204",
+      "display_name": "João Almeida",
+      "bio": "Especialista em prática de idiomas — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "language"
+      ],
+      "price_per_hour": 120.0,
+      "currency": "BRL",
+      "rating": 4.96,
+      "review_count": 51,
+      "location": "Recife, PE",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "398",
+      "user_id": "399",
+      "display_name": "Lucas Souza",
+      "bio": "Disponível pra sessões de roteiros pela cidade, presencial ou remoto.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "travel",
+        "mentorship",
+        "coffee"
+      ],
+      "price_per_hour": 100.0,
+      "currency": "BRL",
+      "rating": 4.95,
+      "review_count": 255,
+      "location": "Salvador, BA",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "33",
+      "user_id": "34",
+      "display_name": "Carla Silva",
+      "bio": "Especialista em prática de idiomas — feedback sincero e prático.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "language",
+        "networking",
+        "mentorship"
+      ],
+      "price_per_hour": 120.0,
+      "currency": "BRL",
+      "rating": 4.95,
+      "review_count": 230,
+      "location": "Brasília, DF",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "111",
+      "user_id": "112",
+      "display_name": "Ana Teixeira",
+      "bio": "Disponível pra sessões de prática de idiomas, presencial ou remoto.",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "language"
+      ],
+      "price_per_hour": 80.0,
+      "currency": "BRL",
+      "rating": 4.95,
+      "review_count": 213,
+      "location": "Salvador, BA",
+      "is_trainer": false,
+      "is_active": true
+    },
+    {
+      "id": "115",
+      "user_id": "116",
+      "display_name": "Bruno Ferreira",
+      "bio": "Anos de experiência ajudando gente com café e boa conversa. Bora marcar?",
+      "avatar_url": null,
+      "photos": [],
+      "categories": [
+        "coffee",
+        "networking",
+        "travel"
+      ],
+      "price_per_hour": 100.0,
+      "currency": "BRL",
+      "rating": 4.95,
+      "review_count": 139,
+      "location": "São Paulo, SP",
+      "is_trainer": false,
+      "is_active": true
+    }
+  ]
+}

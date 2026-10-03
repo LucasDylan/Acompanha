@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 /// API base URL and endpoints.
-/// Use flavors or env vars for dev/staging/prod.
 class ApiConstants {
   ApiConstants._();
 
@@ -27,38 +26,39 @@ class ApiConstants {
   static const String revokeToken = '/auth/revoke/';
   static const String register = '/auth/register/';
   static const String refresh = '/auth/token/refresh/';
-  static const String logout = '/auth/logout/';
   static const String me = '/auth/me/';
+  static const String myAvatar = '/auth/me/avatar/';
 
-  // Profiles
-  static const String profiles = '/profiles/';
+  // Host profiles
+  static const String myHostProfile = '/profiles/me/';
   static String profile(String id) => '/profiles/$id/';
   static String profilePhotos(String id) => '/profiles/$id/photos/';
-
-  // Slots
-  static const String slots = '/slots/';
+  static String profileReviews(String id) => '/profiles/$id/reviews/';
   static String hostSlots(String hostId) => '/profiles/$hostId/slots/';
   static String hostSlot(String hostId, String slotId) =>
       '/profiles/$hostId/slots/$slotId/';
 
+  // Discovery
+  static const String discoverHosts = '/profiles/hosts/';
+
   // Bookings
   static const String bookings = '/bookings/';
   static String booking(String id) => '/bookings/$id/';
-  static String confirmBooking(String id) => '/bookings/$id/confirm/';
   static String cancelBooking(String id) => '/bookings/$id/cancel/';
+  static String reviewBooking(String id) => '/bookings/$id/review/';
 
   // Payments
+  static const String paymentConfig = '/payments/config/';
   static const String createPaymentIntent = '/payments/create-intent/';
   static String capturePayment(String bookingId) =>
       '/payments/bookings/$bookingId/capture/';
 
   // Chat
   static const String conversations = '/conversations/';
+  static const String unreadCount = '/conversations/unread-count/';
+  static String conversation(String id) => '/conversations/$id/';
   static String conversationMessages(String id) =>
       '/conversations/$id/messages/';
-
-  // Discovery
-  static const String discoverHosts = '/profiles/hosts/';
 
   // Gyms
   static const String gyms = '/gyms/';
@@ -69,4 +69,9 @@ class ApiConstants {
   static const String matchRequest = '/matches/request/';
   static const String matchesIncoming = '/matches/incoming/';
   static String matchRespond(String id) => '/matches/$id/respond/';
+
+  // Workouts scheduled between matched partners
+  static const String sessions = '/sessions/';
+  static String confirmSession(String id) => '/sessions/$id/confirm/';
+  static String cancelSession(String id) => '/sessions/$id/cancel/';
 }

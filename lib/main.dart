@@ -14,18 +14,18 @@ void main() async {
   // Load Brazilian date symbols so DateFormat renders months/weekdays in pt-BR.
   Intl.defaultLocale = 'pt_BR';
   await initializeDateFormatting('pt_BR');
-  runApp(const ProviderScope(child: SocialMeetingApp()));
+  runApp(const ProviderScope(child: AcompanhaApp()));
 }
 
-class SocialMeetingApp extends ConsumerWidget {
-  const SocialMeetingApp({super.key});
+class AcompanhaApp extends ConsumerWidget {
+  const AcompanhaApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
-      title: 'Social Meeting',
+      title: 'Acompanha',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       locale: _ptBR,
