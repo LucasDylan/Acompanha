@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from safety.models import exclude_blocked, is_blocked
+
 from .models import Conversation, Message, can_start_chat
 from .serializers import ConversationSerializer, MessageSerializer, SendMessageSerializer
 
@@ -14,9 +16,11 @@ PAGE = 50
 
 
 def conversations_for(user):
+    mine = Conversation.objects.filter(Q(user_a=user) | Q(user_b=user))
+    # A chat with someone blocked (either way) is gone for both of them.
+    mine = exclude_blocked(exclude_blocked(mine, user, 'user_a'), user, 'user_b')
     return (
-        Conversation.objects
-        .filter(Q(user_a=user) | Q(user_b=user))
+        mine
         .select_related('user_a', 'user_b')
         .annotate(
             my_last_read=Case(
@@ -52,6 +56,10 @@ class ConversationListView(APIView):
         other = User.objects.filter(pk=request.data.get('user_id'), is_active=True).first()
         if other is None:
             return Response({'detail': 'Pessoa não encontrada.'}, status=status.HTTP_404_NOT_FOUND)
+        if is_blocked(request.user, other):
+            return Response(
+                {'detail': 'Não é possível conversar com esta pessoa.'}, status=status.HTTP_403_FORBIDDEN,
+            )
         a, b = sorted([request.user.pk, other.pk])
         existing = Conversation.objects.filter(user_a_id=a, user_b_id=b).first()
         if existing is None and not can_start_chat(request.user, other):
@@ -91,6 +99,8 @@ class MessageListView(APIView):
     def _conversation(self, request, pk):
         conversation = get_object_or_404(Conversation, pk=pk)
         if not conversation.includes(request.user):
+            return None
+        if is_blocked(request.user, conversation.other(request.user)):
             return None
         return conversation
 

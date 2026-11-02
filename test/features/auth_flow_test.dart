@@ -84,7 +84,15 @@ void main() {
     await tester.ensureVisible(find.text('Criar conta'));
     await tester.tap(find.text('Criar conta'));
     await settle(tester);
+    // Nothing is sent before confirming age and accepting the terms.
+    expect(find.text('Confirme para criar sua conta'), findsOneWidget);
+    expect(api.count('POST /auth/register/'), 0);
 
+    await tester.tap(find.byType(Checkbox));
+    await tester.tap(find.text('Criar conta'));
+    await settle(tester);
+
+    expect(api.requests.last.data['accept_terms'], isTrue);
     expect(find.byType(RegisterScreen), findsOneWidget);
     expect(find.text('Já existe uma conta com este e-mail.'), findsOneWidget);
   });

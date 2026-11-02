@@ -6,6 +6,7 @@ import '../../../../core/network/api_exception.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../auth/presentation/widgets/terms_text.dart';
 import '../../../auth/providers/auth_provider.dart';
 
 class RegisterForm extends ConsumerStatefulWidget {
@@ -22,6 +23,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
   final _nameController = TextEditingController();
   bool _obscurePassword = true;
   bool _submitting = false;
+  bool _acceptedTerms = false;
   String? _emailError;
   String? _passwordError;
 
@@ -47,6 +49,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
       await ref.read(authStateProvider.notifier).register(
             email: _emailController.text.trim(),
             password: _passwordController.text,
+            acceptTerms: _acceptedTerms,
             displayName: _nameController.text.trim().isNotEmpty
                 ? _nameController.text.trim()
                 : null,
@@ -147,21 +150,55 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
               return null;
             },
           ),
-          const SizedBox(height: AppSpacing.x24),
+          const SizedBox(height: AppSpacing.x16),
+          FormField<bool>(
+            initialValue: false,
+            validator: (v) =>
+                v == true ? null : 'Confirme para criar sua conta',
+            builder: (field) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: _acceptedTerms,
+                      onChanged: (v) {
+                        setState(() => _acceptedTerms = v ?? false);
+                        field.didChange(_acceptedTerms);
+                      },
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.x12),
+                        child: TermsText(
+                          prefix: 'Tenho 18 anos ou mais e aceito os ',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (field.hasError)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AppSpacing.x12),
+                    child: Text(
+                      field.errorText!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.error),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.x16),
           AppButton(
             label: 'Criar conta',
             glow: true,
             isLoading: _submitting,
             onPressed: _submit,
-          ),
-          const SizedBox(height: AppSpacing.x16),
-          Text(
-            'Ao continuar, você concorda com os Termos e a Política de Privacidade.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: AppColors.ink400),
           ),
         ],
       ),

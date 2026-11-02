@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/utils/links.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../safety/providers/safety_provider.dart';
 
 class PrivacyScreen extends ConsumerStatefulWidget {
   const PrivacyScreen({super.key});
@@ -120,6 +124,36 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             const SizedBox(height: AppSpacing.x12),
           ],
           const SizedBox(height: AppSpacing.x12),
+          Text('Pessoas bloqueadas', style: t.titleMedium),
+          const SizedBox(height: AppSpacing.x8),
+          const _BlockedPeople(),
+          const SizedBox(height: AppSpacing.x24),
+          Text('Documentos', style: t.titleMedium),
+          const SizedBox(height: AppSpacing.x8),
+          AppCard(
+            padding: EdgeInsets.zero,
+            // Own Material so the tiles' ink isn't painted under the card.
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.description_outlined),
+                    title: const Text('Termos de uso'),
+                    trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                    onTap: () => openLink(context, ApiConstants.termsUrl),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_outlined),
+                    title: const Text('Política de privacidade'),
+                    trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                    onTap: () => openLink(context, ApiConstants.privacyUrl),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.x12),
           Text(
             'Dúvidas sobre seus dados: ${AppConstants.supportEmail}',
             style: t.bodySmall?.copyWith(color: AppColors.ink500),
@@ -142,6 +176,84 @@ class _PrivacyScreenState extends ConsumerState<PrivacyScreen> {
             label: const Text('Excluir minha conta'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// People the user blocked, with a way to undo it.
+class _BlockedPeople extends ConsumerWidget {
+  const _BlockedPeople();
+
+  Future<void> _unblock(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    String name,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(safetyRepositoryProvider).unblock(userId);
+      refreshPeopleLists(ref);
+      messenger.showSnackBar(SnackBar(content: Text('Você desbloqueou $name.')));
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Theme.of(context).textTheme;
+    final blocked = ref.watch(blockedUsersProvider);
+    return AppCard(
+      border: true,
+      shadow: false,
+      child: blocked.when(
+        loading: () => const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        error: (e, _) => Text(e.toString(), style: t.bodyMedium),
+        data: (people) => people.isEmpty
+            ? Text(
+                'Você não bloqueou ninguém. Para bloquear alguém, use o menu '
+                '⋮ no chat ou no perfil da pessoa.',
+                style: t.bodyMedium?.copyWith(color: AppColors.ink600),
+              )
+            : Column(
+                children: [
+                  for (final (i, person) in people.indexed) ...[
+                    if (i > 0) const SizedBox(height: AppSpacing.x12),
+                    Row(
+                      children: [
+                        AppAvatar(
+                          url: person.avatarUrl,
+                          name: person.name,
+                          radius: 18,
+                        ),
+                        const SizedBox(width: AppSpacing.x12),
+                        Expanded(
+                          child: Text(
+                            person.name,
+                            style: t.titleSmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              _unblock(context, ref, person.userId, person.name),
+                          child: const Text('Desbloquear'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
       ),
     );
   }

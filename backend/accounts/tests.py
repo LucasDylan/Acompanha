@@ -10,16 +10,29 @@ from .models import PasswordResetCode, User
 
 class RegisterLoginTests(ApiTestCase):
     def test_register_normalizes_email_and_rejects_duplicates(self):
-        r = self.client.post('/api/v1/auth/register/',
-                             {'email': ' Ana@Test.com ', 'password': 'Senha-Forte-123', 'display_name': 'Ana'})
+        r = self.client.post('/api/v1/auth/register/', {
+            'email': ' Ana@Test.com ', 'password': 'Senha-Forte-123', 'display_name': 'Ana', 'accept_terms': True,
+        })
         self.assertEqual(r.status_code, 201, r.data)
         self.assertEqual(r.data['user']['email'], 'ana@test.com')
-        dup = self.client.post('/api/v1/auth/register/', {'email': 'ANA@test.com', 'password': 'Outra-Senha-456'})
+        dup = self.client.post('/api/v1/auth/register/',
+                               {'email': 'ANA@test.com', 'password': 'Outra-Senha-456', 'accept_terms': True})
         self.assertEqual(dup.status_code, 400)
         self.assertIn('email', dup.data)
 
+    def test_register_requires_age_and_terms_confirmation(self):
+        body = {'email': 'b@test.com', 'password': 'Senha-Forte-123'}
+        for refused in ({}, {'accept_terms': False}):
+            r = self.client.post('/api/v1/auth/register/', {**body, **refused})
+            self.assertEqual(r.status_code, 400)
+            self.assertIn('accept_terms', r.data)
+        r = self.client.post('/api/v1/auth/register/', {**body, 'accept_terms': True})
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertIsNotNone(User.objects.get(email='b@test.com').terms_accepted_at)
+
     def test_register_rejects_weak_password(self):
-        r = self.client.post('/api/v1/auth/register/', {'email': 'b@test.com', 'password': '123456'})
+        r = self.client.post('/api/v1/auth/register/',
+                             {'email': 'b@test.com', 'password': '123456', 'accept_terms': True})
         self.assertEqual(r.status_code, 400)
         self.assertIn('password', r.data)
 

@@ -86,12 +86,14 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
   Future<void> register({
     required String email,
     required String password,
+    required bool acceptTerms,
     String? displayName,
   }) async {
     state = AsyncData(
       await _repo.register(
         email: email,
         password: password,
+        acceptTerms: acceptTerms,
         displayName: displayName,
       ),
     );

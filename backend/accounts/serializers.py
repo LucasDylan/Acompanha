@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 
 from gyms.serializers import GymSerializer
@@ -47,16 +48,25 @@ class UserSerializer(PublicUserSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     gym_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    # "I'm 18 or older and accept the terms of use and privacy policy."
+    accept_terms = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['email', 'password', 'display_name', 'gym_id']
+        fields = ['email', 'password', 'display_name', 'gym_id', 'accept_terms']
         extra_kwargs = {'email': {'required': True, 'allow_blank': False}}
 
     def validate_email(self, value):
         value = value.strip().lower()
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError('Já existe uma conta com este e-mail.')
+        return value
+
+    def validate_accept_terms(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                'Para criar a conta, confirme que tem 18 anos ou mais e aceita os Termos de uso.'
+            )
         return value
 
     def validate(self, attrs):
@@ -74,6 +84,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
             display_name=validated_data.get('display_name', ''),
+            terms_accepted_at=timezone.now(),
         )
         if gym_id:
             from gyms.models import Gym

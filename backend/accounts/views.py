@@ -5,6 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import filters, generics, serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -14,6 +15,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from matches.models import MatchRequest
+from safety.models import exclude_blocked
 
 from .models import PasswordResetCode
 from .serializers import (
@@ -131,12 +133,15 @@ class FacebookLoginView(generics.GenericAPIView):
                     {'detail': 'Seu Facebook não retornou um e-mail. Permita o acesso ao e-mail e tente novamente.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # The app says "by continuing you confirm you're 18+ and accept the
+            # terms" under the Facebook button.
             user = User.objects.create_user(
                 username=email,
                 email=email,
                 display_name=name,
                 avatar_url=avatar_url,
                 facebook_id=facebook_id,
+                terms_accepted_at=timezone.now(),
             )
             user.set_unusable_password()
             user.save()
@@ -322,7 +327,7 @@ class GymMembersView(generics.ListAPIView):
         workout = self.request.query_params.get('workout_type')
         if workout:
             qs = qs.filter(workout_types__contains=[workout])
-        return qs
+        return exclude_blocked(qs, user)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()

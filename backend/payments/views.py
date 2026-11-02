@@ -10,7 +10,10 @@ from rest_framework.views import APIView
 
 from bookings.models import Booking
 from bookings.services import expire_unpaid_bookings
-from .models import Payment, TrainerSubscription
+from .connect import (
+    dashboard_link, host_can_receive, onboarding_link, payouts_required, platform_fee, sync_account,
+)
+from .models import Payment, PayoutAccount, TrainerSubscription
 from .services import PaymentError, refund_payment
 
 # A pro trainer keeps the label while Stripe retries a failed renewal.
@@ -63,11 +66,24 @@ class CreatePaymentIntentView(APIView):
             if intent['status'] not in ('canceled', 'succeeded'):
                 return Response({'client_secret': intent['client_secret']})
 
+        # Destination charge: the host's share goes straight to their account.
+        split, fee, destination = {}, None, ''
+        if payouts_required():
+            if not host_can_receive(booking.host):
+                return Response(
+                    {'detail': 'Este anfitrião ainda não pode receber pagamentos pelo app.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            fee = platform_fee(booking.amount)
+            destination = booking.host.payout_account.stripe_account_id
+            split = {'transfer_data': {'destination': destination}, 'application_fee_amount': int(fee * 100)}
+
         intent = stripe.PaymentIntent.create(
             amount=int(booking.amount * 100),
             currency=booking.currency.lower(),
             metadata={'booking_id': str(booking.pk)},
             automatic_payment_methods={'enabled': True},
+            **split,
         )
 
         Payment.objects.update_or_create(
@@ -77,9 +93,86 @@ class CreatePaymentIntentView(APIView):
                 'amount': booking.amount,
                 'currency': booking.currency,
                 'status': Payment.STATUS_PENDING,
+                'transfer_destination': destination,
+                'platform_fee': fee,
             },
         )
         return Response({'client_secret': intent['client_secret']})
+
+
+def _own_host_profile(request):
+    return getattr(request.user, 'host_profile', None)
+
+
+class PayoutStatusView(APIView):
+    """GET /payments/payouts/ — can the caller (a host) receive payments?"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        host = _own_host_profile(request)
+        if host is None:
+            return Response({'detail': 'Crie seu perfil de anfitrião primeiro.'}, status=status.HTTP_404_NOT_FOUND)
+        account = PayoutAccount.objects.filter(host=host).first()
+        if account is not None and settings.STRIPE_SECRET_KEY:
+            try:
+                sync_account(account)
+            except stripe.error.StripeError:
+                pass  # Show the last known state.
+        return Response({
+            'required': payouts_required(),
+            'connected': account is not None,
+            'ready': bool(account and account.ready),
+            'fee_percent': float(settings.PLATFORM_FEE_PERCENT),
+        })
+
+
+class PayoutOnboardingView(APIView):
+    """POST /payments/payouts/onboarding/ -> {url} of Stripe's sign-up for
+    receiving payments (identity and bank account)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not settings.STRIPE_SECRET_KEY:
+            return Response(
+                {'detail': 'Pagamentos ainda não estão configurados no servidor.'},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+        host = _own_host_profile(request)
+        if host is None:
+            return Response({'detail': 'Crie seu perfil de anfitrião primeiro.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            url = onboarding_link(
+                host,
+                return_url=request.build_absolute_uri('/pagamentos/recebimentos/pronto/'),
+                refresh_url=request.build_absolute_uri('/pagamentos/recebimentos/expirado/'),
+            )
+        except stripe.error.StripeError:
+            return Response(
+                {'detail': 'Não foi possível abrir o cadastro de recebimentos agora. Tente novamente.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({'url': url})
+
+
+class PayoutDashboardView(APIView):
+    """POST /payments/payouts/dashboard/ -> {url} of the host's Stripe dashboard
+    (balance, payouts, bank details)."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        host = _own_host_profile(request)
+        account = PayoutAccount.objects.filter(host=host).first() if host else None
+        if account is None or not account.details_submitted or not settings.STRIPE_SECRET_KEY:
+            return Response(
+                {'detail': 'Termine o cadastro de recebimentos primeiro.'}, status=status.HTTP_409_CONFLICT,
+            )
+        try:
+            return Response({'url': dashboard_link(account)})
+        except stripe.error.StripeError:
+            return Response(
+                {'detail': 'Não foi possível abrir seus recebimentos agora. Tente novamente.'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
 
 class CapturePaymentView(APIView):
@@ -238,19 +331,29 @@ class StripeWebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        if not settings.STRIPE_WEBHOOK_SECRET:
+        # Two endpoints can point here: the platform's own events and the
+        # connected accounts' ones, each with its own signing secret.
+        secrets = [s for s in (settings.STRIPE_WEBHOOK_SECRET, settings.STRIPE_CONNECT_WEBHOOK_SECRET) if s]
+        if not secrets:
             return Response(
                 {'detail': 'Webhook secret not configured.'},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
 
-        try:
-            event = stripe.Webhook.construct_event(
-                payload=request.body,
-                sig_header=request.META.get('HTTP_STRIPE_SIGNATURE', ''),
-                secret=settings.STRIPE_WEBHOOK_SECRET,
-            )
-        except (ValueError, stripe.error.SignatureVerificationError):
+        event = None
+        for secret in secrets:
+            try:
+                event = stripe.Webhook.construct_event(
+                    payload=request.body,
+                    sig_header=request.META.get('HTTP_STRIPE_SIGNATURE', ''),
+                    secret=secret,
+                )
+                break
+            except stripe.error.SignatureVerificationError:
+                continue
+            except ValueError:
+                break
+        if event is None:
             return Response({'detail': 'Invalid signature.'}, status=status.HTTP_400_BAD_REQUEST)
 
         obj = event['data']['object']
@@ -264,6 +367,10 @@ class StripeWebhookView(APIView):
                       'customer.subscription.updated',
                       'customer.subscription.deleted'):
             _sync_trainer_subscription(obj)
+        elif kind == 'account.updated':
+            account = PayoutAccount.objects.filter(stripe_account_id=obj['id']).first()
+            if account is not None:
+                sync_account(account, obj)
 
         return Response(status=status.HTTP_200_OK)
 

@@ -67,11 +67,19 @@ dependencies:
   # Payments (Stripe)
   flutter_stripe: ^11.2.0
 
+  # Links (terms, privacy policy)
+  url_launcher: ^6.3.3
+
+  # Crash reports (on when built with --dart-define=SENTRY_DSN=...)
+  sentry_flutter: ^9.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   riverpod_lint: ^2.6.2
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -114,3 +122,22 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# App icon and launch screen. Placeholder art in assets/brand/ — to use the real
+# logo, replace those PNGs (same sizes) and run:
+#   dart run flutter_launcher_icons && dart run flutter_native_splash:create
+flutter_launcher_icons:
+  image_path: "assets/brand/app_icon.png"
+  ios: true
+  remove_alpha_ios: true
+  android: true
+  adaptive_icon_background: "assets/brand/app_icon_background.png"
+  adaptive_icon_foreground: "assets/brand/app_icon_foreground.png"
+
+flutter_native_splash:
+  web: false
+  color: "#121212"
+  image: "assets/brand/splash.png"
+  android_12:
+    color: "#121212"
+    image: "assets/brand/splash_android12.png"

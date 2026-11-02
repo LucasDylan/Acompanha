@@ -92,6 +92,12 @@ try:
         save('conversations', b.get('/api/v1/conversations/'))
         save('messages', b.get(f"/api/v1/conversations/{conv.json()['id']}/messages/"))
         save('unread_count', a.get('/api/v1/conversations/unread-count/'))
+        # A third person, so blocking doesn't hide Bia from the responses above.
+        cid = User.objects.create_user(username='cid@contract.test', email='cid@contract.test',
+                                       password='x', display_name='Cid')
+        save('report_created', a.post('/api/v1/reports/', {'user_id': cid.pk, 'reason': 'spam', 'block': True},
+                                      format='json'))
+        save('blocks', a.get('/api/v1/blocks/'))
         raise _Rollback()
 except _Rollback:
     print('rolled back')

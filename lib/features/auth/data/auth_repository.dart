@@ -102,9 +102,12 @@ class AuthRepository implements TokenStore {
         return _startSession(res.data as Map<String, dynamic>);
       });
 
+  /// [acceptTerms]: the user confirmed being 18+ and accepted the terms of
+  /// use and privacy policy; the API refuses the sign-up without it.
   Future<UserModel> register({
     required String email,
     required String password,
+    required bool acceptTerms,
     String? displayName,
   }) =>
       guardApi(() async {
@@ -113,6 +116,7 @@ class AuthRepository implements TokenStore {
           data: {
             'email': email,
             'password': password,
+            'accept_terms': acceptTerms,
             if (displayName != null) 'display_name': displayName,
           },
         );

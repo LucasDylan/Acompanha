@@ -17,7 +17,35 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3, default='USD')
     status = models.CharField(max_length=16, default=STATUS_PENDING)
+    # Destination charge: the host's Stripe account receives amount - platform_fee.
+    transfer_destination = models.CharField(max_length=255, blank=True)
+    platform_fee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class PayoutAccount(models.Model):
+    """The host's Stripe Express account, where their share of each booking goes.
+
+    Stripe runs the sign-up (identity, bank account); the flags mirror the
+    account and are kept in sync by the app's status check and the webhook.
+    """
+    host = models.OneToOneField(
+        'profiles.HostProfile',
+        on_delete=models.CASCADE,
+        related_name='payout_account',
+    )
+    stripe_account_id = models.CharField(max_length=255, unique=True)
+    details_submitted = models.BooleanField(default=False)
+    payouts_enabled = models.BooleanField(default=False)
+    transfers_active = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def ready(self):
+        return self.details_submitted and self.payouts_enabled and self.transfers_active
+
+    def __str__(self):
+        return f'{self.host} — {self.stripe_account_id}'
 
 
 class TrainerSubscription(models.Model):

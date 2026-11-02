@@ -4,6 +4,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from safety.models import is_blocked
+
 from .models import MatchRequest
 from .serializers import MatchRequestSerializer
 
@@ -17,6 +19,8 @@ class SendMatchRequestView(generics.CreateAPIView):
         receiver_id = request.data.get('receiver_id')
         if str(receiver_id) == str(request.user.id):
             return Response({'detail': 'Você não pode enviar um pedido para si mesmo.'}, status=400)
+        if str(receiver_id).isdigit() and is_blocked(request.user, receiver_id):
+            return Response({'detail': 'Não é possível enviar um pedido para esta pessoa.'}, status=403)
         # Check if reverse request already exists and is pending → auto-accept
         reverse = MatchRequest.objects.filter(
             sender_id=receiver_id,

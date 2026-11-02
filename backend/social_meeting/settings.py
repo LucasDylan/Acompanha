@@ -2,6 +2,7 @@
 Django settings for Acompanha API.
 """
 import os
+from decimal import Decimal
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -43,10 +44,14 @@ INSTALLED_APPS = [
     'matches',
     'payments',
     'chat',
+    'safety',
+    'legal',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Serves /static/ (admin CSS/JS) from the app server itself.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -85,6 +90,13 @@ DATABASES = {
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
+# Hosted Postgres (Render, Railway, Neon, Supabase...) usually comes as one URL.
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+
+    DATABASES['default'] = dj_database_url.parse(
+        os.environ['DATABASE_URL'], conn_max_age=600, conn_health_checks=True,
+    )
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -114,6 +126,7 @@ REST_FRAMEWORK = {
         'password_reset': '5/hour',
         'password_reset_confirm': '20/hour',
         'messages': '60/min',
+        'reports': '20/hour',
     },
 }
 
@@ -151,6 +164,11 @@ STRIPE_TRAINER_PRICE_ID = os.environ.get('STRIPE_TRAINER_PRICE_ID', '')
 # Signing secret for POST /api/v1/payments/webhook/ (Stripe dashboard →
 # Developers → Webhooks). Without it the endpoint rejects every event.
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+# Signing secret of the second webhook endpoint, the one for connected
+# accounts' events (hosts' payout accounts: account.updated).
+STRIPE_CONNECT_WEBHOOK_SECRET = os.environ.get('STRIPE_CONNECT_WEBHOOK_SECRET', '')
+# Hosts get paid through Stripe Connect; the platform keeps this share (%).
+PLATFORM_FEE_PERCENT = Decimal(os.environ.get('PLATFORM_FEE_PERCENT', '15'))
 
 # Email (password reset codes). Defaults to printing emails to the console in
 # dev. For production, set EMAIL_BACKEND to the SMTP backend and fill in your
@@ -166,6 +184,9 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@acompanha.app')
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'suporte@acompanha.app')
+# Who gets an e-mail for each user report (empty: only the admin queue).
+MODERATION_EMAIL = os.environ.get('MODERATION_EMAIL', '')
 
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [] if DEBUG else [
@@ -179,12 +200,38 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', 0))
+    # The platform's health check calls over plain HTTP from inside its network.
+    SECURE_REDIRECT_EXEMPT = [r'^healthz/$']
     CSRF_TRUSTED_ORIGINS = [
         origin for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin
     ]
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage' if DEBUG
+        else 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+# Photos in an S3-compatible bucket (AWS S3, Cloudflare R2...) instead of the
+# server's disk. Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+if os.environ.get('AWS_STORAGE_BUCKET_NAME'):
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': os.environ['AWS_STORAGE_BUCKET_NAME'],
+            # R2: https://<account id>.r2.cloudflarestorage.com
+            'endpoint_url': os.environ.get('AWS_S3_ENDPOINT_URL') or None,
+            'region_name': os.environ.get('AWS_S3_REGION_NAME') or None,
+            # Public domain of the bucket/CDN; without one, URLs are signed.
+            'custom_domain': os.environ.get('AWS_S3_CUSTOM_DOMAIN') or None,
+            'querystring_auth': not os.environ.get('AWS_S3_CUSTOM_DOMAIN'),
+            'file_overwrite': False,
+        },
+    }
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', BASE_DIR / 'media'))
@@ -201,3 +248,15 @@ UNFOLD = {
     'SHOW_HISTORY': True,
     'SHOW_VIEW_ON_SITE': True,
 }
+
+# Error monitoring: set SENTRY_DSN (sentry.io › project › Client Keys).
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.environ.get('SENTRY_ENVIRONMENT', 'development' if DEBUG else 'production'),
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0')),
+        send_default_pii=False,
+    )

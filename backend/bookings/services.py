@@ -9,7 +9,9 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from payments.connect import host_can_receive, payouts_required
 from profiles.models import Slot
+from safety.models import is_blocked
 
 from .models import Booking
 
@@ -73,6 +75,10 @@ def create_booking(client, slot_id, host_id):
             raise BookingError('Você não pode reservar um horário seu.')
         if not host.is_active or not host.user.is_active:
             raise BookingError('Este anfitrião não está aceitando reservas no momento.')
+        if is_blocked(client, host.user):
+            raise BookingError('Não é possível reservar com este anfitrião.', status=403)
+        if payouts_required() and not host_can_receive(host):
+            raise BookingError('Este anfitrião ainda não pode receber pagamentos pelo app.', status=409)
         if slot.start_at <= timezone.now():
             raise BookingError('Este horário já passou.')
         if slot.status != Slot.STATUS_AVAILABLE:

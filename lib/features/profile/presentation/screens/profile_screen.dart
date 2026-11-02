@@ -17,6 +17,7 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../matches/providers/matches_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../widgets/gym_picker_sheet.dart';
+import '../widgets/payouts_card.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -96,7 +97,12 @@ class _ProfileBody extends ConsumerWidget {
             ),
             data: (profile) => profile == null
                 ? const _BecomeHostCard()
-                : _HostSummaryCard(profile: profile),
+                : Column(
+                    children: [
+                      _HostSummaryCard(profile: profile),
+                      const PayoutsCard(),
+                    ],
+                  ),
           ),
           const SizedBox(height: AppSpacing.x24),
           _MenuSection(

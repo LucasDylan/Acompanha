@@ -20,9 +20,15 @@ import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/price_tag.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../profile/providers/profile_provider.dart';
+import '../../../safety/presentation/safety_actions.dart';
 import '../../data/booking_repository.dart';
 import '../../providers/booking_provider.dart';
 import '../widgets/slot_picker.dart';
+
+/// The region map needs a Google Maps API key in the native projects; without
+/// one it would render blank, so it's only shown in builds made with
+/// --dart-define=GOOGLE_MAPS=true.
+const _mapsEnabled = bool.fromEnvironment('GOOGLE_MAPS');
 
 class HostDetailScreen extends ConsumerWidget {
   const HostDetailScreen({super.key, required this.hostId, this.initial});
@@ -106,6 +112,14 @@ class _HostDetailViewState extends ConsumerState<_HostDetailView> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          if (!isMine)
+            SafetyMenuButton(
+              userId: host.userId,
+              name: host.name,
+              onBlocked: () => context.pop(),
+            ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -188,7 +202,8 @@ class _HostDetailViewState extends ConsumerState<_HostDetailView> {
           const SizedBox(height: AppSpacing.x24),
           _ReviewsSection(host: host),
 
-          if (host.location != null &&
+          if (_mapsEnabled &&
+              host.location != null &&
               CityCoordinates.lookup(host.location) != null) ...[
             const SizedBox(height: AppSpacing.x24),
             const _SectionTitle('Região'),

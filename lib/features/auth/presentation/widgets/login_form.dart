@@ -9,6 +9,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../data/saved_account.dart';
 import '../../providers/auth_provider.dart';
+import 'terms_text.dart';
 
 /// Facebook login needs the app registered at developers.facebook.com and its
 /// ids in Info.plist / strings.xml; build with
@@ -207,6 +208,16 @@ class _LoginFormState extends ConsumerState<LoginForm> {
                     color: Color(0xFF1877F2),
                   ),
                   label: const Text('Continuar com Facebook'),
+                ),
+                const SizedBox(height: AppSpacing.x12),
+                TermsText(
+                  prefix: 'Ao continuar com o Facebook, você confirma que tem '
+                      '18 anos ou mais e aceita os ',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.ink400),
                 ),
               ],
             ],

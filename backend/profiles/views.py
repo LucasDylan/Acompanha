@@ -11,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from bookings.services import expire_unpaid_bookings
+from payments.connect import READY_HOSTS, payouts_required
+from safety.models import exclude_blocked
 
 from .categories import normalize_categories
 from .models import HostProfile, ProfilePhoto, Slot
@@ -67,6 +69,10 @@ class HostProfileListView(generics.ListAPIView):
             .prefetch_related('photos')
             .order_by(F('rating').desc(nulls_last=True), '-review_count', 'id')
         )
+        qs = exclude_blocked(qs, self.request.user, 'user')
+        if payouts_required():
+            # Only hosts who can actually be paid (and so booked).
+            qs = qs.filter(READY_HOSTS)
 
         categories = normalize_categories(
             (self.request.query_params.get('categories') or '').split(','),
@@ -108,12 +114,13 @@ class HostProfileDetailView(generics.RetrieveAPIView):
     serializer_class = HostProfileSerializer
 
     def get_queryset(self):
-        return (
+        qs = (
             HostProfile.objects
             .filter(Q(is_active=True, user__is_active=True) | Q(user=self.request.user))
             .select_related('user')
             .prefetch_related('photos')
         )
+        return exclude_blocked(qs, self.request.user, 'user')
 
 
 class HostReviewsView(generics.ListAPIView):
@@ -199,7 +206,7 @@ class HostSlotsView(generics.ListCreateAPIView):
         is_owner = HostProfile.objects.filter(pk=host_id, user=self.request.user).exists()
         if is_owner:
             return qs.exclude(status=Slot.STATUS_CANCELLED)
-        return qs.filter(status=Slot.STATUS_AVAILABLE)
+        return exclude_blocked(qs, self.request.user, 'host__user').filter(status=Slot.STATUS_AVAILABLE)
 
     def create(self, request, *args, **kwargs):
         profile = get_object_or_404(HostProfile, pk=self.kwargs['host_id'])

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Acompanha</title>
+  <style>
+    :root { --bg: #ffffff; --text: #1f1f1f; --muted: #616161; --brand: #e64a19; --line: #e5e5e5; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #121212; --text: #eeeeee; --muted: #9e9e9e; --brand: #ff7043; --line: #2c2c2c; }
+    }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+    h2 { font-size: 19px; margin: 32px 0 8px; color: var(--brand); }
+    .updated { color: var(--muted); margin: 0 0 24px; }
+    li { margin: 4px 0; }
+    a { color: var(--brand); }
+    footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{% block heading %}{% endblock %}</h1>
+    {% if updated_on %}<p class="updated">Atualizado em {{ updated_on }}</p>{% endif %}
+    {% block content %}{% endblock %}
+    <footer>
+      Dúvidas: <a href="mailto:{{ support_email }}">{{ support_email }}</a> ·
+      <a href="{% url 'terms' %}">Termos de uso</a> ·
+      <a href="{% url 'privacy' %}">Política de privacidade</a>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,61 @@
+{% extends "legal/base.html" %}
+{% comment %}
+  RASCUNHO: revisar com um advogado e preencher os campos entre colchetes
+  antes de publicar o app.
+{% endcomment %}
+{% block title %}Política de privacidade{% endblock %}
+{% block heading %}Política de privacidade{% endblock %}
+{% block content %}
+<p>Esta política explica quais dados o app Acompanha coleta, para que eles são usados e quais são os seus direitos, de acordo com a Lei Geral de Proteção de Dados (Lei 13.709/2018). O controlador dos dados é [RAZÃO SOCIAL], CNPJ [CNPJ], com sede em [ENDEREÇO].</p>
+
+<h2>1. Dados que coletamos</h2>
+<ul>
+  <li><strong>Cadastro:</strong> nome, e-mail e senha (guardada de forma criptografada).</li>
+  <li><strong>Perfil:</strong> foto, bio, idade, academia, nível e tipos de treino e dias disponíveis, se você preencher.</li>
+  <li><strong>Anúncio de anfitrião:</strong> nome de exibição, descrição, categorias, preço, cidade, fotos e horários.</li>
+  <li><strong>Uso do app:</strong> reservas, mensagens, avaliações, pedidos de parceria, bloqueios e denúncias.</li>
+  <li><strong>Pagamentos:</strong> processados pelo Stripe. Recebemos a confirmação do pagamento, mas não os dados completos do seu cartão.</li>
+  <li><strong>Login com Facebook:</strong> se você escolher essa opção, recebemos seu nome, e-mail e foto de perfil.</li>
+  <li><strong>Dados técnicos:</strong> endereço IP, modelo do aparelho, versão do app e registros de erro.</li>
+</ul>
+
+<h2>2. Para que usamos</h2>
+<ul>
+  <li>Criar e manter sua conta e mostrar seu perfil para outras pessoas no app.</li>
+  <li>Fazer reservas, cobranças, reembolsos e o plano Pro funcionarem.</li>
+  <li>Permitir conversas entre clientes e anfitriões e entre parceiros de treino.</li>
+  <li>Manter a comunidade segura: analisar denúncias, prevenir fraudes e aplicar as regras da comunidade.</li>
+  <li>Responder ao suporte e corrigir erros do app.</li>
+  <li>Cumprir obrigações legais.</li>
+</ul>
+
+<h2>3. Bases legais</h2>
+<p>Tratamos seus dados para executar o contrato com você (os <a href="{% url 'terms' %}">Termos de uso</a>), para cumprir obrigações legais, por legítimo interesse (como segurança e prevenção a fraudes) e, quando necessário, com o seu consentimento, que pode ser revogado a qualquer momento.</p>
+
+<h2>4. Com quem compartilhamos</h2>
+<ul>
+  <li><strong>Outras pessoas no app:</strong> veem seu nome, foto, bio e anúncio. Seu e-mail não é exibido.</li>
+  <li><strong>Stripe:</strong> para processar pagamentos e reembolsos.</li>
+  <li><strong>Fornecedores de infraestrutura:</strong> hospedagem, envio de e-mail e monitoramento de erros, só para operar o app.</li>
+  <li><strong>Autoridades:</strong> quando a lei ou uma ordem judicial exigir.</li>
+</ul>
+<p>Não vendemos seus dados.</p>
+
+<h2>5. Por quanto tempo guardamos</h2>
+<p>Guardamos seus dados enquanto sua conta existir. Quando você exclui a conta, apagamos ou anonimizamos os dados que identificam você. Mantemos apenas o que a lei exige, como registros de pagamentos pelo prazo fiscal e registros de acesso por 6 meses (Marco Civil da Internet).</p>
+
+<h2>6. Seus direitos</h2>
+<p>Você pode pedir a confirmação e o acesso aos seus dados, a correção, a anonimização ou eliminação, a portabilidade, informações sobre o compartilhamento e a revogação do consentimento. Para isso, escreva para <a href="mailto:{{ support_email }}">{{ support_email }}</a>. Você também pode excluir a conta direto no app, em Perfil › Privacidade e segurança.</p>
+
+<h2>7. Segurança</h2>
+<p>Usamos conexões criptografadas (HTTPS), guardamos senhas com criptografia e restringimos o acesso aos dados à equipe que precisa deles.</p>
+
+<h2>8. Menores de idade</h2>
+<p>O Acompanha é só para maiores de 18 anos. Se soubermos que uma conta pertence a um menor, ela será excluída.</p>
+
+<h2>9. Encarregado de dados</h2>
+<p>O encarregado pelo tratamento de dados é [NOME DO ENCARREGADO], que pode ser contatado em [E-MAIL DO ENCARREGADO].</p>
+
+<h2>10. Mudanças nesta política</h2>
+<p>Podemos atualizar esta política. Quando a mudança for importante, avisaremos no app.</p>
+{% endblock %}

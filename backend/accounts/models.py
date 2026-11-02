@@ -47,6 +47,8 @@ class User(AbstractUser):
     available_days = models.JSONField(default=list)
     bio = models.TextField(blank=True)
     age = models.PositiveSmallIntegerField(null=True, blank=True)
+    # When they confirmed being 18+ and accepted the terms of use (/termos/).
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.display_name or self.email

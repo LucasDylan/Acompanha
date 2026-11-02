@@ -53,6 +53,11 @@ class ApiConstants {
   static String capturePayment(String bookingId) =>
       '/payments/bookings/$bookingId/capture/';
 
+  // Host payouts (Stripe Connect)
+  static const String payouts = '/payments/payouts/';
+  static const String payoutsOnboarding = '/payments/payouts/onboarding/';
+  static const String payoutsDashboard = '/payments/payouts/dashboard/';
+
   // Chat
   static const String conversations = '/conversations/';
   static const String unreadCount = '/conversations/unread-count/';
@@ -74,4 +79,15 @@ class ApiConstants {
   static const String sessions = '/sessions/';
   static String confirmSession(String id) => '/sessions/$id/confirm/';
   static String cancelSession(String id) => '/sessions/$id/cancel/';
+
+  // Blocking and reporting people
+  static const String blocks = '/blocks/';
+  static String block(String userId) => '/blocks/$userId/';
+  static const String reports = '/reports/';
+
+  /// Terms of use and privacy policy: public pages on the same server.
+  static String get termsUrl => _page('termos');
+  static String get privacyUrl => _page('privacidade');
+  static String _page(String path) =>
+      '${baseUrl.replaceFirst(RegExp(r'/api/v1/?$'), '')}/$path/';
 }

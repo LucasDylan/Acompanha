@@ -3,18 +3,32 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'app/routes/app_router.dart';
 import 'core/theme/app_theme.dart';
 
 const _ptBR = Locale('pt', 'BR');
 
+/// Crash and error reports go to Sentry when the build sets
+/// --dart-define=SENTRY_DSN=... (sentry.io › project › Client Keys).
+const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Load Brazilian date symbols so DateFormat renders months/weekdays in pt-BR.
   Intl.defaultLocale = 'pt_BR';
   await initializeDateFormatting('pt_BR');
-  runApp(const ProviderScope(child: AcompanhaApp()));
+
+  void run() => runApp(const ProviderScope(child: AcompanhaApp()));
+  if (_sentryDsn.isEmpty) return run();
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = _sentryDsn;
+      options.sendDefaultPii = false;
+    },
+    appRunner: run,
+  );
 }
 
 class AcompanhaApp extends ConsumerWidget {

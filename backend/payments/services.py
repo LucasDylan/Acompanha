@@ -23,8 +23,12 @@ def refund_payment(payment):
     if not stripe_enabled():
         raise PaymentError('Pagamentos não estão configurados no servidor.')
     stripe.api_key = settings.STRIPE_SECRET_KEY
+    params = {'payment_intent': payment.stripe_payment_intent_id}
+    if payment.transfer_destination:
+        # Take the host's share back and return the platform fee too.
+        params.update(reverse_transfer=True, refund_application_fee=True)
     try:
-        stripe.Refund.create(payment_intent=payment.stripe_payment_intent_id)
+        stripe.Refund.create(**params)
     except stripe.error.StripeError as exc:
         raise PaymentError('Não foi possível estornar o pagamento agora. Tente novamente.') from exc
     payment.status = Payment.STATUS_REFUNDED

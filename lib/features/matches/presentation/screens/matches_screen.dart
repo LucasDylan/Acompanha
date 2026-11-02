@@ -11,6 +11,7 @@ import '../../../auth/providers/auth_provider.dart';
 import '../../../chat/providers/chat_provider.dart';
 import '../../../discovery/presentation/widgets/partner_card.dart';
 import '../../../profile/presentation/widgets/gym_picker_sheet.dart';
+import '../../../safety/presentation/safety_actions.dart';
 import '../../models/gym_member_model.dart';
 import '../../models/match_request_model.dart';
 import '../../providers/matches_provider.dart';
@@ -227,6 +228,28 @@ class _FindPartnersTabState extends ConsumerState<_FindPartnersTab> {
                   const SizedBox(height: AppSpacing.x4),
                   Text(member.availableDays.join(' · '), style: t.bodyMedium),
                 ],
+                const SizedBox(height: AppSpacing.x16),
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        reportPerson(this.context, ref, userId: member.id, name: member.name);
+                      },
+                      icon: const Icon(Icons.flag_outlined),
+                      label: const Text('Denunciar'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        blockPerson(this.context, ref, userId: member.id, name: member.name);
+                      },
+                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      icon: const Icon(Icons.block_rounded),
+                      label: const Text('Bloquear'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

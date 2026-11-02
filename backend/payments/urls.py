@@ -5,6 +5,9 @@ from .views import (
     CapturePaymentView,
     CreatePaymentIntentView,
     PaymentConfigView,
+    PayoutDashboardView,
+    PayoutOnboardingView,
+    PayoutStatusView,
     StripeWebhookView,
     TrainerSubscriptionView,
 )
@@ -16,4 +19,7 @@ urlpatterns = [
     path('payments/trainer-subscription/', TrainerSubscriptionView.as_view()),
     path('payments/trainer-subscription/cancel/', CancelTrainerSubscriptionView.as_view()),
     path('payments/webhook/', StripeWebhookView.as_view()),
+    path('payments/payouts/', PayoutStatusView.as_view()),
+    path('payments/payouts/onboarding/', PayoutOnboardingView.as_view()),
+    path('payments/payouts/dashboard/', PayoutDashboardView.as_view()),
 ]

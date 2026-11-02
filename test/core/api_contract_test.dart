@@ -10,6 +10,7 @@ import 'package:projeto_apollo/features/booking/data/booking_repository.dart';
 import 'package:projeto_apollo/features/chat/models/conversation_model.dart';
 import 'package:projeto_apollo/features/matches/models/gym_member_model.dart';
 import 'package:projeto_apollo/features/matches/models/match_request_model.dart';
+import 'package:projeto_apollo/features/safety/data/safety_repository.dart';
 
 /// Parses responses recorded from the real Django API
 /// (backend/tools/export_api_fixtures.py) with the app's models, so a
@@ -112,5 +113,15 @@ void main() {
     expect(messages.single.senderId, sent.senderId); // Bia reads Ana's message
 
     expect(fixture('unread_count')['unread'], isA<int>());
+  });
+
+  test('blocks and reports', () {
+    final blocked = (fixture('blocks') as List)
+        .cast<Map<String, dynamic>>()
+        .map(BlockedUser.fromJson)
+        .toList();
+    expect(blocked.single.name, 'Cid');
+    expect(int.tryParse(blocked.single.userId), isNotNull);
+    expect(fixture('report_created')['blocked'], isTrue);
   });
 }

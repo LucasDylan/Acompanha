@@ -1,0 +1,74 @@
+{% extends "legal/base.html" %}
+{% comment %}
+  RASCUNHO: revisar com um advogado e preencher os campos entre colchetes
+  antes de publicar o app.
+{% endcomment %}
+{% block title %}Termos de uso{% endblock %}
+{% block heading %}Termos de uso{% endblock %}
+{% block content %}
+<p>Estes termos valem para o app Acompanha, oferecido por [RAZÃO SOCIAL], CNPJ [CNPJ], com sede em [ENDEREÇO]. Ao criar uma conta, você declara que leu e aceita estes termos e a <a href="{% url 'privacy' %}">Política de privacidade</a>.</p>
+
+<h2>1. O que é o Acompanha</h2>
+<p>O Acompanha conecta pessoas para encontros de convivência e troca de conhecimento: um café, networking, mentoria de carreira, prática de idiomas, roteiros pela cidade, eventos sociais e treinos. Também ajuda quem treina na mesma academia a encontrar parceiros de treino. O Acompanha não organiza nem participa dos encontros; ele oferece o espaço para as pessoas se encontrarem, conversarem e, quando for o caso, pagarem pelo encontro.</p>
+
+<h2>2. Quem pode usar</h2>
+<ul>
+  <li>Somente maiores de 18 anos.</li>
+  <li>As informações da sua conta e do seu perfil precisam ser verdadeiras, e a foto precisa ser sua.</li>
+  <li>Cada pessoa pode ter uma conta, e você é responsável pelo que acontece nela. Não compartilhe sua senha.</li>
+</ul>
+
+<h2 id="regras">3. Regras da comunidade</h2>
+<p>Para que todo mundo se sinta seguro, é proibido:</p>
+<ul>
+  <li>oferecer, pedir ou combinar encontros românticos, sexuais ou de acompanhante, ou qualquer serviço de natureza sexual;</li>
+  <li>assediar, ameaçar, ofender ou discriminar qualquer pessoa;</li>
+  <li>enviar ou publicar conteúdo sexual, violento ou ilegal, inclusive em fotos e mensagens;</li>
+  <li>criar perfis falsos ou se passar por outra pessoa;</li>
+  <li>enviar spam, aplicar golpes ou pedir pagamento fora do app por um encontro marcado nele;</li>
+  <li>usar o app para qualquer atividade ilegal.</li>
+</ul>
+<p>Quem descumprir essas regras pode ter conteúdo removido e a conta suspensa ou excluída, sem prejuízo de comunicarmos as autoridades quando a lei exigir.</p>
+
+<h2>4. Segurança nos encontros</h2>
+<ul>
+  <li>Marque em lugares públicos e movimentados, principalmente no primeiro encontro.</li>
+  <li>Avise alguém de confiança sobre onde e com quem você vai estar.</li>
+  <li>Converse pelo chat do app e não compartilhe dados pessoais ou financeiros.</li>
+  <li>Se algo parecer errado, vá embora. No app, você pode <strong>denunciar</strong> e <strong>bloquear</strong> qualquer pessoa no chat ou no perfil dela. Em caso de perigo, ligue 190.</li>
+</ul>
+
+<h2>5. Reservas, pagamentos e cancelamento</h2>
+<ul>
+  <li>O preço por hora é definido pelo anfitrião e aparece antes da confirmação.</li>
+  <li>O pagamento é feito no app e processado pelo Stripe. O Acompanha não armazena os dados do seu cartão.</li>
+  <li>Uma reserva não paga segura o horário por {{ payment_window_minutes }} minutos; depois disso, o horário volta a ficar livre.</li>
+  <li>Se você cancelar com pelo menos {{ free_cancellation_hours }} horas de antecedência, recebe o valor de volta integralmente. Com menos antecedência, o cancelamento não tem reembolso.</li>
+  <li>Se o anfitrião cancelar, você sempre recebe o valor de volta integralmente.</li>
+  <li>O Acompanha pode cobrar uma taxa de serviço, que é informada antes da confirmação da reserva.</li>
+</ul>
+
+<h2>6. Anfitriões</h2>
+<p>Anfitriões são pessoas independentes, que definem o que oferecem, os horários e o preço, e respondem pela própria conduta nos encontros. Ao publicar um anúncio, o anfitrião se compromete a cumprir os horários aceitos, descrever com honestidade o que oferece e seguir as regras da comunidade.</p>
+
+<h2>7. Plano Pro de personal trainer</h2>
+<p>Personal trainers podem assinar o plano Pro, com cobrança mensal recorrente pelo Stripe. A assinatura pode ser cancelada a qualquer momento e continua valendo até o fim do período já pago.</p>
+
+<h2>8. Seu conteúdo</h2>
+<p>Fotos, textos e mensagens continuam sendo seus. Ao publicá-los, você autoriza o Acompanha a exibi-los no app para que o serviço funcione. Você pode apagar fotos e editar o perfil quando quiser.</p>
+
+<h2>9. Denúncias e moderação</h2>
+<p>Analisamos as denúncias recebidas e podemos remover conteúdo, suspender ou excluir contas que descumpram estes termos. Mensagens de uma conversa denunciada podem ser lidas pela equipe de moderação para avaliar o caso.</p>
+
+<h2>10. Responsabilidades</h2>
+<p>O Acompanha se esforça para manter o app funcionando e seguro, mas não participa dos encontros e não garante a conduta dos usuários. Na medida permitida pela lei, o Acompanha não responde por danos causados por usuários durante os encontros, sem prejuízo dos direitos previstos no Código de Defesa do Consumidor.</p>
+
+<h2>11. Encerrar a conta</h2>
+<p>Você pode excluir sua conta a qualquer momento no app, em Perfil › Privacidade e segurança › Excluir minha conta. Reservas futuras são canceladas seguindo a política de reembolso acima.</p>
+
+<h2>12. Mudanças nestes termos</h2>
+<p>Podemos atualizar estes termos. Quando a mudança for importante, avisaremos no app antes de ela valer.</p>
+
+<h2>13. Lei aplicável</h2>
+<p>Estes termos seguem as leis brasileiras. Fica eleito o foro do domicílio do consumidor para resolver qualquer questão relacionada a eles.</p>
+{% endblock %}

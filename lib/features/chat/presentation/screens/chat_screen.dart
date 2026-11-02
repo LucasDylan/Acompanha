@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../safety/presentation/safety_actions.dart';
 import '../../models/conversation_model.dart';
 import '../../providers/chat_provider.dart';
 
@@ -256,6 +257,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ],
         ),
+        actions: [
+          if (peer != null)
+            SafetyMenuButton(
+              userId: peer.id,
+              name: peer.name,
+              conversationId: widget.conversationId,
+              onBlocked: () => context.pop(),
+            ),
+        ],
       ),
       body: body,
     );
